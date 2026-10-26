@@ -109,10 +109,10 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
             </select>
           </Field>
           <Field label="Fonte de prospecção" htmlFor="prospectSource">
-            <Input id="prospectSource" name="prospectSource" defaultValue={campaign?.prospectSource ?? "google_places"} />
+            <Input id="prospectSource" name="prospectSource" defaultValue={campaign?.prospectSource ?? "openstreetmap"} />
           </Field>
           <Field label="Provedor de busca" htmlFor="searchProvider">
-            <Input id="searchProvider" name="searchProvider" defaultValue={campaign?.searchProvider ?? "n8n"} />
+            <Input id="searchProvider" name="searchProvider" defaultValue={campaign?.searchProvider ?? "overpass"} />
           </Field>
         </div>
 

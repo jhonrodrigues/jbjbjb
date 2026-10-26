@@ -20,6 +20,8 @@ describe("validation schemas", () => {
       expect(parsed.data.autoAnalyze).toBe(true);
       expect(parsed.data.autoLp).toBe(false);
       expect(parsed.data.maxLeads).toBe(100);
+      expect(parsed.data.prospectSource).toBe("openstreetmap");
+      expect(parsed.data.searchProvider).toBe("overpass");
     }
   });
 

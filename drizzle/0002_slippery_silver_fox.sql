@@ -1,0 +1,2 @@
+ALTER TABLE "jb_agent_campaigns" ALTER COLUMN "prospect_source" SET DEFAULT 'openstreetmap';--> statement-breakpoint
+ALTER TABLE "jb_agent_campaigns" ALTER COLUMN "search_provider" SET DEFAULT 'overpass';

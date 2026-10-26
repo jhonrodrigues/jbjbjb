@@ -199,3 +199,9 @@ Webhook configurável foi implementado e validado localmente nesta etapa; não h
 Autorização confirmada para commit/push somente dos arquivos da funcionalidade em `origin/main`, sem deploy. Estado atual conferido: branch `main`, remote autorizado, HEAD alinhado com `origin/main` após fetch antes do commit. Diff completo e arquivos novos inspecionados; `.gitignore` exclui `.env*`, com exceção de `.env.example`; único env rastreado é o exemplo.
 
 Nesta conferência, Node **22.23.1** executou novamente lint, typecheck, `npm test` e build, todos com código 0: **66 testes aprovados e 9 integrações ignoradas** sem `TEST_DATABASE_URL`. PostgreSQL/Chromium e Docker não foram repetidos nesta conferência; evidências anteriores estão atribuídas nas seções acima. Nenhuma alteração de código após esses checks. Revisão independente e serviços reais continuam não verificados. Destino arbitrário HTTP(S) editável por admin permanece limite explícito: confiar em administradores e restringir egress quando necessário, sem alegar proteção SSRF por allowlist.
+
+### Defaults da campanha: OpenStreetMap/Overpass
+
+Formulário, action, schema Zod e defaults Drizzle agora usam `openstreetmap` + `overpass` para novas campanhas. Migração `drizzle/0002_slippery_silver_fox.sql` altera somente defaults do banco; valores já salvos em campanhas existentes não são reescritos. Teste em PostgreSQL 17 descartável aplicou todas migrações e inseriu campanha omitindo os campos; retornou `openstreetmap|overpass`; container de teste removido.
+
+Checks após a alteração: lint/typecheck/test/build passaram, Node local 20.20.2; 66 testes passaram e 9 integrações foram ignoradas sem `TEST_DATABASE_URL`. `npm run db:generate` não encontrou mudanças de schema pendentes. Docker build Node 22 passou (`jbjbjb-autopilot:campaign-source-defaults`, imagem `dba8945fa4a3`). Nenhum deploy.
