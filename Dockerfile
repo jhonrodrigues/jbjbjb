@@ -12,7 +12,7 @@ FROM base AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 FROM base AS prod-deps
 COPY package.json package-lock.json ./
