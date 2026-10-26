@@ -1,0 +1,50 @@
+[
+  {
+    "slug": "prospector",
+    "name": "Prospector",
+    "role": "Prospecção",
+    "description": "Encontra estabelecimentos por nicho e região."
+  },
+  {
+    "slug": "analista-ia",
+    "name": "Analista IA",
+    "role": "Qualificação",
+    "description": "Pesquisa e qualifica oportunidades com base em sinais do negócio."
+  },
+  {
+    "slug": "pesquisador-web",
+    "name": "Pesquisador Web",
+    "role": "Pesquisa",
+    "description": "Coleta evidências públicas sobre a empresa e o mercado local."
+  },
+  {
+    "slug": "estrategista-marca",
+    "name": "Estrategista de Marca",
+    "role": "Branding",
+    "description": "Propõe identidade visual e posicionamento quando não há material confirmado."
+  },
+  {
+    "slug": "criador-conteudo",
+    "name": "Criador de Conteúdo",
+    "role": "Conteúdo",
+    "description": "Prepara copy e estrutura narrativa para as demonstrações."
+  },
+  {
+    "slug": "gerador-lp",
+    "name": "Gerador de LP",
+    "role": "Landing pages",
+    "description": "Gera e regenera landing pages a partir do template e do brand profile."
+  },
+  {
+    "slug": "comercial",
+    "name": "Comercial",
+    "role": "Vendas",
+    "description": "Prepara abordagens e registra a evolução comercial."
+  },
+  {
+    "slug": "publicador",
+    "name": "Publicador",
+    "role": "Publicação",
+    "description": "Publica LPs aprovadas em links privados com token e expiração."
+  }
+]
