@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth-helpers";
 import { getPublicConfig } from "@/lib/env";
 import { AppShell } from "@/components/layout/app-shell";
+import { isWebhookConfigured } from "@/lib/n8n-webhook";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const [user, config] = await Promise.all([requireUser(), Promise.resolve(getPublicConfig())]);
+  const webhookConfigured = await isWebhookConfigured().catch(() => false);
 
   return (
     <AppShell
@@ -20,7 +22,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         role: user.role === "admin" ? "Administrador" : "Membro",
       }}
       databaseConfigured={config.databaseConfigured}
-      n8nConfigured={config.n8nConfigured}
+      n8nConfigured={config.n8nConfigured || webhookConfigured}
     >
       {children}
     </AppShell>

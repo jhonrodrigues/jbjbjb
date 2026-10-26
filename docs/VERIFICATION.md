@@ -130,19 +130,72 @@ Nenhuma dessas pendências autoriza push ou deploy. A imagem verificada fica dis
 
 Após checks finais, app descartável parado; PostgreSQL confirmou zero outras conexões de cliente. Containers próprios `jbjbjb-remediation-app` e `jbjbjb-remediation-db`, volume anônimo do banco e rede `jbjbjb-remediation-net` removidos com sucesso. Listagem filtrada não retornou containers próprios restantes. Nenhum container de outros projetos foi alterado. Workspace contém somente `.env.example`, sem `.env` real. Capturas/harness temporários permanecem em `/tmp/opencode` como evidência.
 
+## Webhook configurável de execução n8n — 2026-10-26
+
+Escopo: `src/lib/n8n-webhook.ts`, actions de configurações/campanhas, formulário administrativo e status/feedback nas telas, regressões e documentação. Workflows externos, Schedule, query de claim e contrato de lease não foram alterados. Sem migração de schema ou alteração de dependências. A implementação só fica disponível após rebuild da aplicação; não equivale a deploy/validação de produção.
+
+### Contrato e segurança conferidos
+
+- Configuração dedicada `n8n_webhook`; segredo AES-256-GCM, HKDF de `AUTH_SECRET`, IV aleatório e autenticação do ciphertext. Tamper/chave incorreta rejeitados.
+- Action exige `requireAdmin` antes de acesso/mutação. UI recebe projeção de URL, header name e booleano, sem plaintext/ciphertext. Campo vazio preserva; remoção explícita limpa. Membros não recebem formulário nem metadados do webhook; só indicador booleano de configuração no shell/ambiente.
+- URL HTTP(S) sem credenciais/query/fragmento; cabeçalhos inválidos/reservados e CRLF rejeitados. Destinos internos são permitidos por decisão explícita para n8n privado; isso não constitui proteção SSRF por allowlist. Exige administrador confiável e política de egress quando aplicável.
+- Enqueue/idempotência precedem POST com `jobId`/`campaignId`; timeout HTTP de 5s, 2xx aceito, redirect não seguido e corpo remoto ignorado. Logs usam somente IDs, motivo e status.
+- Falha/ausência/timeout do webhook não altera estado ou tentativas do job. Schedule permanece fallback; sinal não garante qual job será reivindicado nem conclusão da tarefa.
+- Alterar `AUTH_SECRET` exige recadastrar segredo do webhook. Credencial Header Auth do webhook é distinta do bearer da API interna.
+
+### Checks desta funcionalidade
+
+Node **22.23.1**, PostgreSQL 17 local descartável `webhook_verify` e endpoints HTTP artificiais de loopback. Comandos finais após última mudança de código:
+
+| Check | Resultado observado |
+| --- | --- |
+| `rtk lint` (ESLint) | Código 0, sem problemas. |
+| `npm run typecheck` | Código 0. |
+| `npm test` com `TEST_DATABASE_URL` explícita | Código 0; **17 arquivos / 75 testes aprovados, nenhum skip**, incluindo **9 integrações PostgreSQL**. |
+| `npm run build` | Código 0, Next.js 16.4.3. |
+| Migrações existentes em banco descartável novo | Código 0; funcionalidade não adicionou migração. |
+| Detector mecânico Impeccable nos três alvos UI iniciais | Código 0, resultado `[]`; não substitui inspeção no navegador. |
+| Chromium headless + servidor Next em build de produção | Código 0 no smoke final; detalhes abaixo. |
+| Docker build/runtime da nova funcionalidade | Build local Node 22 executado após implementação; runtime EasyPanel/n8n real não executado. |
+
+Regressões cobrem criptografia aleatória/round-trip/tamper/chave ausente/incorreta, validação de configuração, autorização admin e não exposição de exceções/segredos, POST HTTP real com header/contexto, 202, redirect rejeitado e servidor sem resposta abortado em 5s. Integração PostgreSQL + HTTP real verifica ciphertext persistido, projeção segura, preservação/remoção e configuração inválida sem sobrescrita, ausência/503/timeout com mesmo job pendente e dois cliques concorrentes sem duplicar job.
+
+### Navegador e limites da evidência
+
+Harness temporário `/tmp/opencode/jb-webhook-smoke.cjs`, Playwright **1.63.0** já instalado em outro workspace e Chromium headless existente; nenhuma dependência adicionada. Um processo Next local e receptor HTTP artificial foram iniciados pelo harness e encerrados no finally.
+
+- Admin salvou URL/header/segredo via formulário, preservou com campo vazio e removeu explicitamente. Banco confirmado com ciphertext e depois `null`.
+- HTML/RSC e respostas reais das actions de configuração não continham segredo; HTML também não continha ciphertext. Logs capturados da aplicação não continham segredo.
+- Campanha enviou sinais reais ao receptor local: 202 mostrou aceitação; 503 mostrou fallback. Cliques repetidos produziram um único job ainda pendente; Header Auth e IDs recebidos conferidos. Após remoção do segredo, nenhum novo POST foi enviado.
+- Conta rebaixada a membro viu somente leitura, sem formulário de segredo.
+- Capturas reais em **1440×900** e **390×844**: `/tmp/opencode/jb-webhook-settings-desktop.png`, `/tmp/opencode/jb-webhook-settings-mobile.png`. Ambas abertas/inspecionadas após confirmação final; sem overflow horizontal da página e sem erros de console/página no smoke.
+- Primeiras duas tentativas do harness falharam no coletor de respostas, não em assert da funcionalidade: `Network.getResponseBody` perde corpo após navegação/revalidação da Server Action. Diagnóstico: coleta assíncrona pós-resposta incompatível com ciclo de navegação. Corrigido harness para `route.fetch`/leitura antes de `route.fulfill`, conforme docs oficiais Playwright 1.63.0. Smoke completo passou depois, inclusive na repetição após ajuste do indicador de configuração.
+
+Autorrevisão de helpers, chamadores, projeções, contratos e evidência executada. **Revisão independente de código/segurança NÃO EXECUTADA** por indisponibilidade de ferramenta de delegação. n8n real, workflow publicado/Schedule, produção e EasyPanel **NÃO EXECUTADOS**. A resposta artificial 202 não comprova integração ou conclusão reais. Push de código não equivale a deploy nem confirma integração. Fonte do contrato n8n em `docs/N8N.md`; plano/decisões em `docs/WEBHOOK-TASK.md`.
+
+Limpeza confirmada: harness encerrou Next/receptor local e removeu fixtures de usuário/campanha/configuração; consultas retornaram zero configurações/fixtures do smoke restantes. PostgreSQL confirmou zero outras conexões de cliente antes de parada. Container próprio `jbjbjb-webhook-db` e volume anônimo removidos; listagem filtrada sem containers próprios e sem listeners em 3101/55433. Nenhum recurso de outro projeto alterado. Harness e capturas permanecem somente em `/tmp/opencode`.
+
+### Follow-up local desta implementação
+
+Entry repetiu `npm run lint`, `npm run typecheck`, `npm test` e `npm run build` com código 0. Node local 20.20.2 (abaixo do engine declarado 22.12+): 16 arquivos passaram, 1 integração foi ignorada; 66 testes passaram e 9 foram ignorados sem `TEST_DATABASE_URL`. `DOCKER_BUILDKIT=0 docker build -t jbjbjb-autopilot:webhook .` concluiu com código 0 em Node 22; imagem `abcf94becae7`. Buildkit/EasyPanel, PostgreSQL após este follow-up e n8n real não foram testados.
+
 ### Follow-up de autorrevisão — timezone e revogação
 
 Uma verificação adicional encontrou dois casos não cobertos: dia do gráfico sob timezone positivo distinto do processo, e JWT potencialmente revalidado após reativar conta desativada. `src/lib/dashboard.ts` agora usa `appDay` e tem regressão para `Pacific/Kiritimati`; ambas as ações administrativas incrementam `session_version` ao desativar. Regressões red/green observadas em `tests/period-calendar.test.ts` e `tests/users.test.ts`.
 
 Após essas alterações, `npm run lint`, `npm run typecheck`, `npm test` e `npm run build` passaram com código 0 usando Node 20.20.2: 14 arquivos passaram e 1 integração foi ignorada (50 testes aprovados, 8 ignorados por ausência de `TEST_DATABASE_URL`). `DOCKER_BUILDKIT=0 docker build -t jbjbjb-autopilot:remediation .` também passou com Node 22, imagem `254ded1a69cd`. Integrações PostgreSQL e smoke Chromium não foram repetidos após este follow-up.
 
-### Preparação de commit e push autorizados — 2026-10-26
+### Histórico Git
 
-Autorização posterior do usuário: commit e push para `https://github.com/jhonrodrigues/jbjbjb.git`, sem deploy ou alterações nos workflows n8n. As restrições históricas de Git acima descrevem as etapas anteriores; não representam essa autorização posterior.
+- `be0c7c9 fix(security): harden sessions and leases` — primeiro envio do projeto e correções da fila/sessão.
+- `e97449a fix(docker): create public dir for image` — garante diretório `public` no archive Git.
+- `357e287 fix(docker): probe configured app port` — healthcheck segue `PORT` fornecido pelo EasyPanel.
+- Commits acima foram enviados a `main`; nenhum deploy de produção foi confirmado.
 
-- Workspace sem repositório confirmado novamente; `git ls-remote --symref` sem helper de credenciais retornou código 0, sem referências. Repositório local inicializado em `main`, com `origin` apontando somente para o destino autorizado.
-- `rtk lint`, `rtk npm run typecheck`, `npm test` e `rtk npm run build`: código 0 nesta preparação. Node 20.20.2; 14 arquivos de teste passaram, 1 foi ignorado; 50 testes aprovados e 8 ignorados sem `TEST_DATABASE_URL`. Node local permanece abaixo do engine declarado; Docker Node 22, PostgreSQL e Chromium não foram repetidos nesta etapa.
-- `.gitignore` passou a excluir `*.tsbuildinfo`; stage explícito dos arquivos do projeto, sem dependências, build, logs ou `.env` real. Somente `.env.example`, com valores de exemplo, incluído. `git diff --cached --check` sem problemas; busca por padrões comuns de tokens e chaves privadas no stage não encontrou correspondências. Essa busca não substitui auditoria de segurança.
-- Revisão independente continua **NÃO EXECUTADA**. Push de código não aprova produção: antes de deploy, aplicar `drizzle/0001_session_leases.sql`, migrar consumidores para `leaseToken` em complete/fail e resolver os gates de liberação registrados acima.
+Webhook configurável foi implementado e validado localmente nesta etapa; não há evidência de workflow n8n real ou deploy EasyPanel. Revisão independente continua **NÃO EXECUTADA**. Antes de deploy, aplicar `drizzle/0001_session_leases.sql`, migrar consumidores para `leaseToken` em complete/fail e resolver os gates de liberação registrados acima.
 
-Resultado de commit/push será informado na entrega; este registro não presume execução bem-sucedida dessas operações.
+### Conferência para push do webhook — 2026-10-26
+
+Autorização confirmada para commit/push somente dos arquivos da funcionalidade em `origin/main`, sem deploy. Estado atual conferido: branch `main`, remote autorizado, HEAD alinhado com `origin/main` após fetch antes do commit. Diff completo e arquivos novos inspecionados; `.gitignore` exclui `.env*`, com exceção de `.env.example`; único env rastreado é o exemplo.
+
+Nesta conferência, Node **22.23.1** executou novamente lint, typecheck, `npm test` e build, todos com código 0: **66 testes aprovados e 9 integrações ignoradas** sem `TEST_DATABASE_URL`. PostgreSQL/Chromium e Docker não foram repetidos nesta conferência; evidências anteriores estão atribuídas nas seções acima. Nenhuma alteração de código após esses checks. Revisão independente e serviços reais continuam não verificados. Destino arbitrário HTTP(S) editável por admin permanece limite explícito: confiar em administradores e restringir egress quando necessário, sem alegar proteção SSRF por allowlist.

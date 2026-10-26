@@ -14,6 +14,7 @@ Painel operacional para prospecção, qualificação, geração de landing pages
 - Configurações da operação, limites de custo e gestão de usuários.
 - Fila PostgreSQL com claim concorrente seguro, retry, timeout de lock, cancelamento e idempotência.
 - API interna autenticada para workers n8n e healthcheck para container.
+- Execução de campanha sinaliza webhook n8n configurável por administrador; segredo criptografado, timeout de 5s e fallback para Schedule existente.
 
 ## Stack
 
@@ -108,6 +109,8 @@ O container aplica migrações antes de iniciar o servidor e expõe `GET /api/he
 ## Integração n8n
 
 A API interna está documentada em [docs/N8N.md](docs/N8N.md). Ela não usa cookies: o worker envia `Authorization: Bearer $INTERNAL_API_SECRET` (ou `x-jb-signature` com `N8N_WEBHOOK_SECRET`).
+
+Para disparo pelo botão da campanha, configure URL completa e Header Auth em **Configurações → Webhook n8n**. O segredo fica criptografado com chave derivada de `AUTH_SECRET` e não retorna ao navegador; vazio preserva, remoção explícita limpa. Isso só desperta o workflow: Schedule de 5 minutos e claim da pendência mais antiga permanecem iguais. Nenhum workflow externo é criado/publicado pelo painel. Consulte contrato e rotação de chave em [docs/N8N.md](docs/N8N.md).
 
 Endpoints:
 

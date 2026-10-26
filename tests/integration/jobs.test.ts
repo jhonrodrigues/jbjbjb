@@ -1,4 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createServer, type Server } from "node:http";
+vi.mock("server-only", () => ({}));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(`REDIRECT:${url}`); } }));
+vi.mock("@/lib/auth-helpers", () => ({ requireUser: async () => ({ id: "00000000-0000-4000-8000-000000000009" }) }));
+vi.mock("@/lib/logger", () => ({ logInfo: vi.fn(), logWarn: vi.fn(), logError: vi.fn() }));
 import { claimJobs, completeJob, failJob, cancelJob, retryJob, enqueueJob } from "@/lib/jobs";
 import { closeDb, getPool } from "@/db/client";
 import { getDashboardData } from "@/lib/dashboard";
@@ -6,6 +12,10 @@ import { resolvePeriod } from "@/lib/period";
 import { getLpsPage, getLegacyLpById } from "@/lib/legacy";
 import { getCrmContactsPage, moveContactStage, registerContactEvent } from "@/lib/contacts";
 import { setLpStatus } from "@/lib/lp-status";
+import { getWebhookSettingsSummary, isWebhookConfigured, saveWebhookSettings } from "@/lib/n8n-webhook";
+import { getPlatformSettings } from "@/lib/settings";
+import { runCampaignAction } from "@/actions/campaigns";
+import { logInfo, logWarn } from "@/lib/logger";
 
 const testUrl = process.env.TEST_DATABASE_URL;
 const ids: string[] = [];
@@ -154,5 +164,88 @@ describe.skipIf(!testUrl)("PostgreSQL worker lifecycle (local disposable databas
     } finally { await pool.query("alter table jb_agent_contact_events drop constraint regression_event"); }
     await moveContactStage(contact.id, "qualificado", "valid");
     expect((await pool.query("select from_stage,to_stage from jb_agent_contact_events where contact_id=$1", [contact.id])).rows).toEqual([{ from_stage: "identificado", to_stage: "qualificado" }]);
+  });
+
+  it("persists encrypted webhook settings and wakes n8n without changing queued work on failure", async () => {
+    const pool = getPool();
+    const userId = "00000000-0000-4000-8000-000000000009";
+    const secret = "synthetic-integration-webhook-secret";
+    let server: Server | undefined;
+    let campaignId: string | undefined;
+    const received: { jobId: string; campaignId: string }[] = [];
+    const receivedHeaders: unknown[] = [];
+    let mode: "accepted" | "error" | "timeout" = "error";
+    try {
+      await pool.query("insert into jb_agent_users (id,name,email,password_hash,role) values ($1,'Synthetic','webhook@example.invalid','synthetic','admin')", [userId]);
+      const { rows: [campaign] } = await pool.query("insert into jb_agent_campaigns (name,niche,status) values ('Webhook synthetic','Synthetic','active') returning id");
+      campaignId = campaign.id;
+      await expect(runCampaignAction(campaign.id)).rejects.toThrow(`REDIRECT:/campanhas/${campaign.id}?dispatch=fallback`);
+      const jobRows = async () => (await pool.query("select id,status from jb_agent_jobs where campaign_id=$1", [campaign.id])).rows;
+      const [job] = await jobRows();
+      expect(job.status).toBe("pending");
+      expect(await isWebhookConfigured()).toBe(false);
+
+      server = createServer((request, response) => {
+        receivedHeaders.push(request.headers["x-jb-test"]);
+        let body = "";
+        request.on("data", chunk => { body += chunk; });
+        request.on("end", () => {
+          received.push(JSON.parse(body));
+          if (mode === "timeout") return;
+          response.writeHead(mode === "accepted" ? 202 : 503);
+          response.end("Synthetic acknowledgement");
+        });
+      });
+      await new Promise<void>(resolve => server!.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("TEST_SERVER_ADDRESS");
+      const url = `http://127.0.0.1:${address.port}/webhook/jb-agent-executar`;
+      const input = { url, headerName: "X-JB-Test", secret, clearSecret: false };
+      await saveWebhookSettings(input, userId);
+      const stored = async () => (await pool.query("select value from jb_agent_settings where key='n8n_webhook'")).rows[0].value;
+      const first = await stored();
+      expect(JSON.stringify(first)).not.toContain(secret);
+      expect(first.encryptedSecret).toMatch(/^v1\./);
+      expect(await getWebhookSettingsSummary()).toEqual({ url, headerName: "X-JB-Test", secretConfigured: true });
+      expect(await isWebhookConfigured()).toBe(true);
+      expect(JSON.stringify(await getPlatformSettings())).not.toContain(first.encryptedSecret);
+      await saveWebhookSettings({ ...input, secret: "" }, userId);
+      expect((await stored()).encryptedSecret).toBe(first.encryptedSecret);
+      await expect(saveWebhookSettings({ ...input, url: "file:///unsafe" }, userId)).rejects.toThrow();
+      expect((await stored()).encryptedSecret).toBe(first.encryptedSecret);
+
+      await expect(runCampaignAction(campaign.id)).rejects.toThrow(`REDIRECT:/campanhas/${campaign.id}?dispatch=fallback`);
+      expect(await jobRows()).toEqual([{ id: job.id, status: "pending" }]);
+      mode = "timeout";
+      await expect(runCampaignAction(campaign.id)).rejects.toThrow(`REDIRECT:/campanhas/${campaign.id}?dispatch=fallback`);
+      expect(await jobRows()).toEqual([{ id: job.id, status: "pending" }]);
+      mode = "accepted";
+      await Promise.all([1, 2].map(async () => {
+        await expect(runCampaignAction(campaign.id)).rejects.toThrow(`REDIRECT:/campanhas/${campaign.id}?dispatch=accepted`);
+      }));
+      expect(await jobRows()).toEqual([{ id: job.id, status: "pending" }]);
+      expect(received).toHaveLength(4);
+      expect(receivedHeaders).toEqual([secret, secret, secret, secret]);
+      for (const body of received) expect(body).toMatchObject({ jobId: job.id, campaignId: campaign.id });
+      expect(JSON.stringify([vi.mocked(logInfo).mock.calls, vi.mocked(logWarn).mock.calls])).not.toContain(secret);
+
+      await saveWebhookSettings({ ...input, secret: "", clearSecret: true }, userId);
+      expect((await stored()).encryptedSecret).toBeNull();
+      expect((await getWebhookSettingsSummary()).secretConfigured).toBe(false);
+      expect(await isWebhookConfigured()).toBe(false);
+      await expect(runCampaignAction(campaign.id)).rejects.toThrow(`REDIRECT:/campanhas/${campaign.id}?dispatch=fallback`);
+      expect(received).toHaveLength(4);
+    } finally {
+      if (server) {
+        server.closeAllConnections();
+        await new Promise<void>(resolve => server!.close(() => resolve()));
+      }
+      await pool.query("delete from jb_agent_settings where key='n8n_webhook'");
+      if (campaignId) {
+        await pool.query("delete from jb_agent_jobs where campaign_id=$1", [campaignId]);
+        await pool.query("delete from jb_agent_campaigns where id=$1", [campaignId]);
+      }
+      await pool.query("delete from jb_agent_users where id=$1", [userId]);
+    }
   });
 });

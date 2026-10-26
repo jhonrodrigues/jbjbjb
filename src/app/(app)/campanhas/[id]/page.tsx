@@ -35,12 +35,12 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; dispatch?: string }>;
 };
 
 export default async function CampaignDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
-  const { saved } = await searchParams;
+  const { saved, dispatch } = await searchParams;
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
@@ -83,6 +83,16 @@ export default async function CampaignDetailPage({ params, searchParams }: PageP
         <div className="rounded-lg border border-[var(--success)]/20 bg-[var(--success-subtle)] px-3 py-2 text-[11px] text-[var(--success)]">
           Campanha atualizada.
         </div>
+      ) : null}
+
+      {dispatch === "accepted" ? (
+        <p role="status" className="rounded-lg border border-[var(--success)]/20 bg-[var(--success-subtle)] px-3 py-2 text-[11px] text-[var(--success)]">
+          Tarefa enfileirada. n8n aceitou o sinal de execução; isso não confirma conclusão nem garante qual pendência será processada primeiro.
+        </p>
+      ) : dispatch === "fallback" ? (
+        <p role="status" className="rounded-lg border border-[var(--warning)]/20 bg-[var(--warning-subtle)] px-3 py-2 text-[11px] text-[var(--warning)]">
+          Tarefa enfileirada. Disparo imediato não confirmado ou webhook não configurado. A fila foi preservada para o Schedule de 5 minutos buscar as pendências.
+        </p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">

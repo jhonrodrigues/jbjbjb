@@ -6,10 +6,30 @@ import { getDb } from "@/db/client";
 import { settings } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/audit";
-import { formString, firstZodMessage, type ActionState } from "@/lib/forms";
+import { formCheckbox, formString, firstZodMessage, type ActionState } from "@/lib/forms";
 import { getPlatformSettings } from "@/lib/settings";
 import { settingsPatchSchema } from "@/lib/validation";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
+import { saveWebhookSettings } from "@/lib/n8n-webhook";
+
+export async function saveWebhookSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireAdmin();
+  try {
+    await saveWebhookSettings({
+      url: formString(formData, "url"), headerName: formString(formData, "headerName"),
+      secret: formString(formData, "secret"), clearSecret: formCheckbox(formData, "clearSecret"),
+    }, user.id);
+    await recordActivity({
+      actorType: "user", actorId: user.id, action: "n8n_webhook_settings_updated",
+      entityType: "settings", entityId: "n8n_webhook", summary: "Configuração do sinal de execução n8n atualizada",
+    });
+  } catch {
+    logWarn("Falha ao salvar configuração do webhook n8n", { userId: user.id });
+    return { error: "Não foi possível salvar. Confira URL HTTP(S) sem parâmetros, cabeçalho e segredo (mínimo 16 caracteres). Não combine remoção e novo segredo. AUTH_SECRET deve ter pelo menos 32 caracteres.", success: null };
+  }
+  revalidatePath("/configuracoes");
+  return { error: null, success: "Webhook salvo. Segredo não é exibido novamente." };
+}
 
 export async function saveSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireAdmin();

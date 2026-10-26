@@ -1,5 +1,45 @@
 # Integração n8n
 
+## Botão de campanha → sinal de execução
+
+Em **Configurações → Webhook n8n**, administrador configura:
+
+- URL completa de produção, por exemplo `https://n8n.seudominio.com/webhook/jb-agent-executar`;
+- nome do cabeçalho Header Auth, por exemplo `X-JB-Webhook-Secret`;
+- valor secreto do cabeçalho, com pelo menos 16 caracteres ASCII sem quebras de linha.
+
+URL aceita HTTP(S), sem usuário/senha, query string ou fragmento. Use HTTPS fora de rede privada confiável. Administrador escolhe destino de saída do servidor, inclusive endereços internos; restrinja egress no ambiente se precisar de allowlist. Redirecionamentos não são seguidos e cabeçalhos de transporte/cookies não são aceitos como Header Auth.
+
+O segredo desse **webhook de entrada do n8n** é independente de `INTERNAL_API_SECRET` usado pelo n8n para chamar a API de jobs. Configure a credencial Header Auth no n8n com o mesmo nome/valor; o painel não altera nem publica workflows.
+
+### Fluxo preservado
+
+1. `Executar agora` valida campanha ativa e admissões, e enfileira `prospect_campaign`.
+2. Depois do enqueue, backend envia POST autenticado com timeout HTTP de **5 segundos**:
+
+```json
+{
+  "event": "campaign.execute",
+  "jobId": "uuid-do-job",
+  "campaignId": "uuid-da-campanha"
+}
+```
+
+3. Webhook POST `/webhook/jb-agent-executar`, com Header Auth e resposta **Immediately** (preferencialmente 202), converge no mesmo nó **Buscar Próxima Tarefa** do Schedule Trigger existente de 5 minutos.
+4. Esse nó continua fazendo claim da pendência elegível mais antiga (`available_at`, depois `created_at`), com lease pelo contrato abaixo. **`jobId`/`campaignId` são contexto, não seleção obrigatória.** Sinal aceito não garante que a campanha clicada execute primeiro, nem comprova conclusão.
+
+Qualquer 2xx é aceitação do sinal; corpo da resposta é ignorado. Sem configuração/segredo, erro de configuração/conexão, não-2xx ou timeout, painel informa fallback e não falha/cancela/remove o job. Não há retry automático do POST. Schedule continua responsável por buscar pendências se estiver ativo; disponibilidade real do workflow não é comprovada pelo painel.
+
+Chave de idempotência existente por campanha/hora foi mantida. Cliques repetidos nessa janela reutilizam o mesmo job, inclusive seu estado atual; podem enviar sinais repetidos sem criar trabalho de banco duplicado. Webhook e Schedule concorrentes continuam sujeitos ao mesmo claim transacional.
+
+### Armazenamento e rotação
+
+Configuração usa chave dedicada `n8n_webhook` em `jb_agent_settings`, separada de `platform`. Segredo usa AES-256-GCM, IV aleatório e chave derivada por HKDF de `AUTH_SECRET` (mínimo 32 caracteres). UI recebe somente URL, nome do cabeçalho e indicador de segredo configurado — nunca plaintext ou ciphertext. Campo vazio preserva segredo; marcar remoção e salvar elimina ciphertext. URL vazia desativa sinal sem alterar Schedule.
+
+Rotacionar `AUTH_SECRET` impede decriptar segredo anterior: salve novamente o segredo do webhook após rotação. Não envie segredos em URLs. Logs de dispatch contêm somente IDs, motivo e status HTTP, sem URL, cabeçalho, corpo remoto ou exceção bruta.
+
+**Produção vs teste:** use Production URL com workflow publicado/ativo. Test URL só funciona em Listen for Test Event/Execute workflow. Modo Immediately responde com código configurado e mensagem “Workflow got started”. Fonte: [documentação oficial Webhook n8n](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/), conferida via Context7 em 2026-10-26; revalidar ao mudar versão/contrato do n8n.
+
 ## Autenticação
 
 Envie em todas as chamadas:

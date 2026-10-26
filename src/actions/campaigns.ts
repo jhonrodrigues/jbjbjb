@@ -11,6 +11,7 @@ import { formCheckbox, formOptional, formString, firstZodMessage, type ActionSta
 import { campaignInputSchema } from "@/lib/validation";
 import { enqueueJob } from "@/lib/jobs";
 import { logError } from "@/lib/logger";
+import { dispatchCampaignWakeup } from "@/lib/n8n-webhook";
 
 function optionalNumber(value: string): number | undefined {
   if (!value) return undefined;
@@ -143,7 +144,7 @@ export async function runCampaignAction(id: string): Promise<void> {
   if (!campaign) throw new Error("CAMPAIGN_NOT_FOUND");
   if (campaign.status !== "active") throw new Error("CAMPAIGN_INACTIVE");
 
-  await enqueueJob({
+  const job = await enqueueJob({
     type: "prospect_campaign",
     campaignId: id,
     createdBy: user.id,
@@ -165,4 +166,6 @@ export async function runCampaignAction(id: string): Promise<void> {
 
   revalidatePath(`/campanhas/${id}`);
   revalidatePath("/agentes");
+  const dispatch = await dispatchCampaignWakeup({ jobId: job.id, campaignId: id });
+  redirect(`/campanhas/${id}?dispatch=${dispatch.accepted ? "accepted" : "fallback"}`);
 }

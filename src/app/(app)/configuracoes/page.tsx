@@ -6,10 +6,12 @@ import { users } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import { isAdmin, requireUser } from "@/lib/auth-helpers";
 import { getPlatformSettings } from "@/lib/settings";
+import { getWebhookSettingsSummary, isWebhookConfigured } from "@/lib/n8n-webhook";
 import { updateUserAction } from "@/actions/users";
 import { PageHeader } from "@/components/layout/page-header";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { CreateUserForm } from "@/components/settings/create-user-form";
+import { WebhookSettingsForm } from "@/components/settings/webhook-settings-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
@@ -23,6 +25,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   const params = await searchParams;
   const [user, settings] = await Promise.all([requireUser(), getPlatformSettings()]);
   const admin = isAdmin(user);
+  const webhook = admin ? await getWebhookSettingsSummary() : null;
+  const n8nConfigured = Boolean(process.env.N8N_BASE_URL || (admin
+    ? webhook?.url && webhook.secretConfigured
+    : await isWebhookConfigured().catch(() => false)));
   const userRows = admin && hasDatabaseUrl()
     ? await getDb().select().from(users).orderBy(asc(users.name)).catch(() => [])
     : [];
@@ -59,7 +65,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
               ["limits", "Limites"],
               ["lp", "Landing pages"],
               ["ai", "IA"],
-              ...(admin ? [["users", "Administração"]] : []),
+              ...(admin ? [["n8n", "Webhook n8n"], ["users", "Administração"]] : []),
             ].map(([id, label]) => (
               <a key={id} href={`#${id}`} className="block rounded-md px-2.5 py-1.5 text-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]">
                 {label}
@@ -84,6 +90,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
               </dl>
             </div>
           )}
+
+          {admin && webhook ? <WebhookSettingsForm settings={webhook} /> : null}
 
           {admin ? (
             <section id="users" className="scroll-mt-20 space-y-4">
@@ -164,8 +172,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
               <Badge variant={hasDatabaseUrl() ? "success" : "warning"}>
                 PostgreSQL {hasDatabaseUrl() ? "configurado" : "não configurado"}
               </Badge>
-              <Badge variant={process.env.N8N_BASE_URL ? "success" : "outline"}>
-                n8n {process.env.N8N_BASE_URL ? "configurado" : "não configurado"}
+              <Badge variant={n8nConfigured ? "success" : "outline"}>
+                n8n {n8nConfigured ? "configurado" : "não configurado"}
               </Badge>
               <Badge variant={process.env.AI_API_KEY || process.env.OPENAI_API_KEY ? "success" : "outline"}>
                 IA {process.env.AI_API_KEY || process.env.OPENAI_API_KEY ? "configurada" : "não configurada"}
