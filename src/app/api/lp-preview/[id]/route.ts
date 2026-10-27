@@ -27,5 +27,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   }
 
-  return new Response(sanitizeLpHtml(html), { status: 200, headers: previewResponseHeaders() });
+
+  // Sanitiza o HTML antes de disponibilizar a previa
+  const htmlSeguro = sanitizeLpHtml(html);
+
+  // Identifica o lead associado a esta LP
+  const leadId = lp.leadId;
+
+  let htmlFinal = htmlSeguro;
+
+  if (leadId && /^[1-9]\d{0,17}$/.test(leadId)) {
+    const caminhoLogo = `/api/brand/logo/${leadId}`;
+
+    // Autoriza o carregamento da imagem somente
+    // usando o token valido desta previa
+    const caminhoAutorizado =
+      `${caminhoLogo}?lp=${encodeURIComponent(id)}` +
+      `&amp;token=${encodeURIComponent(token ?? "")}`;
+
+    htmlFinal = htmlSeguro.replaceAll(
+      `src="${caminhoLogo}"`,
+      `src="${caminhoAutorizado}"`
+    );
+  }
+
+  return new Response(htmlFinal, {
+    status: 200,
+    headers: previewResponseHeaders(),
+  });
+
 }
