@@ -1,0 +1,13 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../n8n/refine-validator.txt'),'utf8');
+const validate=new Function('$input','$',source);
+const ctx={source_html:'<html><head></head><body><a href="tel:+551932421198">Agropet Calais</a></body></html>',lp_id:'2',lead_id:'49',source_id:'test',source_md5:'x',source_version:3,comparison_id:'test'};
+const base={rationale:'Ajustar ritmo',patches:[{selector:'.hero',media:null,declarations:[{property:'padding-top',value:'48px'}]}]};
+const run=(r,finish='stop')=>validate({first:()=>({json:{choices:[{finish_reason:finish,message:{content:JSON.stringify(r)}}],model:'test'}})},()=>({first:()=>({json:ctx})}))[0].json;
+test('preserves all original HTML and never promotes or publishes',()=>{const r=run(base);assert.equal(r.html.replace(/<style data-jb-refinement="08R">[\s\S]*?<\/style>/,''),ctx.source_html);assert.equal(r.promote,false);assert.equal(r.publish,false);});
+for(const [name,patch] of [['unapproved selector',{selector:'script'}],['unsupported media',{media:9999}],['hidden content',{declarations:[{property:'display',value:'none'}]}],['external CSS URL',{declarations:[{property:'background-color',value:'url(https://invalid.example)'}]}],['HTML injection',{declarations:[{property:'color',value:'</style><script>x</script>'}]}],['unreadable text',{declarations:[{property:'font-size',value:'0px'}]}],['CSS declaration escape',{declarations:[{property:'color',value:'red;display:none'}]}]])test('rejects '+name,()=>assert.throws(()=>run({...base,patches:[{...base.patches[0],...patch}]})));
+test('rejects truncated response',()=>assert.throws(()=>run(base,'length')));
+test('rejects empty patch instead of saving duplicate version',()=>assert.throws(()=>run({...base,patches:[]})));

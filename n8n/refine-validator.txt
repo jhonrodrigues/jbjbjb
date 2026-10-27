@@ -1,0 +1,16 @@
+const response=$input.first().json;
+if(response.choices?.[0]?.finish_reason!=='stop') throw new Error('REF_INCOMPLETE_RESPONSE');
+const r=JSON.parse(response.choices[0].message.content);const c=$('08R | Planejar Ajustes').first().json;
+if(!Array.isArray(r.patches)||r.patches.length>12||!r.patches.length) throw new Error('REF_NO_SAFE_PATCHES');
+const selectors=['body','.wrap','.notice','.header-inner','.brand','.nav','.hero','.hero-grid','.hero h1','.lead','.btn','.hint','.hero-visual','.art-eyebrow','.art-title','.art-foot','.section','.section-grid','.section h2','.bodytext','.metric','.contact','.contact h2','.contact p','.contact .btn','.footer'];
+const props=['color','background-color','border-color','border-radius','border-width','border-style','font-size','font-weight','line-height','letter-spacing','padding','padding-top','padding-bottom','padding-left','padding-right','margin','margin-top','margin-bottom','gap','row-gap','column-gap','box-shadow'];
+const css=r.patches.map(p=>{if(!selectors.includes(p.selector)||![null,600,900].includes(p.media)||!p.declarations||!Array.isArray(p.declarations))throw new Error('REF_INVALID_SELECTOR');
+const ds=p.declarations.map(d=>[d.property,d.value]);if(!ds.length||ds.length>12)throw new Error('REF_INVALID_DECLARATIONS');
+const rules=ds.map(([k,v])=>{if(!props.includes(k)||typeof v!=='string'||v.length>150||/[;{}<>\\]/.test(v)||/url|expression|import|important|javascript|content|display/i.test(v))throw new Error('REF_UNSAFE_CSS');
+if(k==='font-size'&&(!/^\d+(\.\d+)?px$/.test(v)||parseFloat(v)<12||parseFloat(v)>120))throw new Error('REF_FONT_SIZE');
+return k+':'+v;}).join(';');const rule=p.selector+'{'+rules+'}';return p.media?'@media(max-width:'+p.media+'px){'+rule+'}':rule;}).join('\n');
+if(!c.source_html.includes('</head>'))throw new Error('REF_MISSING_HEAD');
+const addition='<style data-jb-refinement="08R">'+css+'</style>';
+const html=c.source_html.replace('</head>',addition+'</head>');
+if(html.replace(addition,'')!==c.source_html)throw new Error('REF_CONTENT_CHANGED');
+return [{json:{lp_id:c.lp_id,lead_id:c.lead_id,source_id:c.source_id,source_md5:c.source_md5,source_version:c.source_version,comparison_id:c.comparison_id,html,patches:r.patches,rationale:r.rationale,model:response.model,publish:false,promote:false,validation:'css_only_content_preserved',evaluation_status:'pending'}}];
