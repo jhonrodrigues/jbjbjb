@@ -1,6 +1,7 @@
 
 import { getPool } from "@/db/client";
 import { getSessionUser } from "@/lib/auth-helpers";
+import { readPreviewToken } from "@/lib/lp-preview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,15 +62,43 @@ export async function GET(
     const publicado = logo.lp_status === "published";
 
     // Em rascunhos, somente usuarios autenticados
-    if (!publicado) {
-      const usuario = await getSessionUser();
 
-      if (!usuario) {
-        return new Response("Logo nao disponivel", {
-          status: 404,
-        });
-      }
+if (!publicado) {
+  const usuario = await getSessionUser();
+  let autorizado = usuario?.role === "admin";
+
+  if (!autorizado) {
+    const url = new URL(_request.url);
+    const lpId = url.searchParams.get("lp");
+    const token = url.searchParams.get("token");
+
+    if (
+      lpId &&
+      lpId.length <= 80 &&
+      readPreviewToken(token, lpId)
+    ) {
+      const preview = await getPool().query(
+        `
+        SELECT 1
+        FROM jb_agent_lps
+        WHERE id::text = $1
+          AND lead_id = $2::bigint
+        LIMIT 1
+        `,
+        [lpId, id]
+      );
+
+      autorizado = Boolean(preview.rowCount);
     }
+  }
+
+  if (!autorizado) {
+    return new Response("Logo nao disponivel", {
+      status: 404,
+    });
+  }
+}
+
 
     return new Response(
       Uint8Array.from(logo.image_bytes),
