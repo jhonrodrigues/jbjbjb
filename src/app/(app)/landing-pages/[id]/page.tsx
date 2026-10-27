@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LpQualityPanel } from "@/components/lps/lp-quality-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BadgeCheck, CircleAlert, ExternalLink, Eye, FileCode2, Globe2, Pencil, UserRound } from "lucide-react";
@@ -144,6 +145,7 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
         </div>
 
         <div className="space-y-4">
+          <LpQualityPanel lpId={id} />
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
             <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-2)]">Aprovação</p>
             <h2 className="mt-0.5 text-sm font-semibold tracking-tight">Status da demonstração</h2>
@@ -173,6 +175,8 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
                       <Badge variant={LP_STATUS_TONE[version.status as keyof typeof LP_STATUS_TONE] ?? "outline"}>{LP_STATUS_LABELS[version.status as keyof typeof LP_STATUS_LABELS] ?? version.status}</Badge>
                     </div>
                     <p className="mt-1 text-[9px] text-[var(--muted-2)]">{formatDateTime(version.createdAt)}</p>
+                    {version.htmlSnapshot ? <a className="mt-2 inline-block text-xs underline" href={`/api/lp-preview/${encodeURIComponent(id)}?token=${createPreviewToken(id, version.id)}`} target="_blank" rel="noopener noreferrer">Abrir v{version.version}</a> : null}
+                    {version.config.source === "08R" ? <p className="mt-1 text-xs text-[var(--muted)]">Refinamento controlado · avaliação pendente</p> : null}
                   </div>
                 ))}
               </div>
