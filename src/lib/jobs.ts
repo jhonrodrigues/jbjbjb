@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { getDb, getPool } from "@/db/client";
 import { agents, jobEvents, jobs, type JobType } from "@/db/schema";
 import { getPlatformSettings } from "./settings";
@@ -66,6 +66,16 @@ export async function enqueueJob(input: EnqueueJobInput) {
   if (input.idempotencyKey) {
     const [existing] = await tx.select().from(jobs).where(eq(jobs.idempotencyKey, input.idempotencyKey)).limit(1);
     if (existing) return existing;
+  }
+  // Only one active manual refinement per LP: prevents conflicting versions
+  // even when two requests with different instructions arrive together.
+  if (input.type === "regenerate_lp" && input.lpId) {
+    const [active] = await tx
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(and(eq(jobs.type, "regenerate_lp"), eq(jobs.lpId, input.lpId), inArray(jobs.status, ["pending", "processing"])))
+      .limit(1);
+    if (active) throw new JobValidationError("Esta LP já possui um refinamento em andamento", 409, "LP_REFINEMENT_IN_PROGRESS");
   }
   if (input.campaignId) {
     const { rows } = await tx.execute(sql`select status from jb_agent_campaigns where id = ${input.campaignId}::uuid for share`);
@@ -361,6 +371,23 @@ export async function failJob(
   }
 }
 
+export async function getLpRefinementJobs(lpId: string) {
+  return getDb()
+    .select({
+      id: jobs.id,
+      status: jobs.status,
+      attempts: jobs.attempts,
+      maxAttempts: jobs.maxAttempts,
+      error: jobs.error,
+      createdAt: jobs.createdAt,
+      finishedAt: jobs.finishedAt,
+    })
+    .from(jobs)
+    .where(and(eq(jobs.type, "regenerate_lp"), eq(jobs.lpId, lpId)))
+    .orderBy(desc(jobs.createdAt))
+    .limit(5);
+}
+
 export async function getJobById(id: string) {
   const db = getDb();
   const [job] = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
@@ -476,6 +503,23 @@ export async function getJobStats() {
 export async function retryJob(id: string, userId?: string) {
   const db = getDb();
   const updated = await db.transaction(async (tx) => {
+  // Share the admission lock with enqueueJob to serialize refinements and retries.
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('jb_agent_job_admission'))`);
+  const [original] = await tx
+    .select({ type: jobs.type, lpId: jobs.lpId, status: jobs.status })
+    .from(jobs)
+    .where(eq(jobs.id, id))
+    .limit(1);
+  if (original?.type === "regenerate_lp" && original.lpId &&
+      (original.status === "failed" || original.status === "cancelled")) {
+    const [active] = await tx
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(and(eq(jobs.type, "regenerate_lp"), eq(jobs.lpId, original.lpId),
+        inArray(jobs.status, ["pending", "processing"]), ne(jobs.id, id)))
+      .limit(1);
+    if (active) throw new JobValidationError("Esta LP já possui um refinamento em andamento", 409, "LP_REFINEMENT_IN_PROGRESS");
+  }
   const [updated] = await tx
     .update(jobs)
     .set({

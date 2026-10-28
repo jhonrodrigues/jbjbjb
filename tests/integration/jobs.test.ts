@@ -75,6 +75,31 @@ describe.skipIf(!testUrl)("PostgreSQL worker lifecycle (local disposable databas
     await expect(cancelJob(String(a.id))).rejects.toMatchObject({ code: "JOB_INVALID_TRANSITION" });
   });
 
+  it("prevents overlapping LP refinements and allows retry after failure", async () => {
+    const pool = getPool();
+    const base = {
+      type: "regenerate_lp" as const,
+      lpId: "regression-lp",
+      leadId: "regression-lead",
+      maxAttempts: 1,
+    };
+    const first = await enqueueJob({ ...base, idempotencyKey: "regression-refine:first" });
+    ids.push(first.id);
+    await expect(enqueueJob({ ...base, idempotencyKey: "regression-refine:second" }))
+      .rejects.toMatchObject({ code: "LP_REFINEMENT_IN_PROGRESS" });
+    const [claimed] = await claimJobs("refine-integration", 1, ["regenerate_lp"]);
+    expect(claimed.id).toBe(first.id);
+    await failJob(first.id, "refine-integration", "synthetic failure", false, String(claimed.lease_token));
+    const second = await enqueueJob({ ...base, idempotencyKey: "regression-refine:second" });
+    ids.push(second.id);
+    await expect(retryJob(first.id)).rejects.toMatchObject({ code: "LP_REFINEMENT_IN_PROGRESS" });
+    await cancelJob(second.id);
+    const retried = await retryJob(first.id);
+    expect(retried.status).toBe("pending");
+    expect((await pool.query("select count(*)::int as total from jb_agent_jobs where lp_id='regression-lp' and status='pending'")).rows[0].total).toBe(1);
+    await cancelJob(first.id);
+  });
+
   it("holds paused pending jobs and rejects inactive campaign admission", async () => {
     const pool = getPool();
     await pool.query("insert into jb_agent_agents (slug,name,role,paused) values ('regression-agent','Synthetic','test',true)");

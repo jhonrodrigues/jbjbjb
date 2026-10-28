@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { enqueueJob } from "@/lib/jobs";
+import { enqueueJob, getLpRefinementJobs, retryJob } from "@/lib/jobs";
 import { getLegacyLpById, getLpVersionsForLp } from "@/lib/legacy";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -55,9 +55,13 @@ export async function requestLpRefinementAction(lpId: string, formData: FormData
   if (!lp?.leadId || !base?.htmlSnapshot || base.leadId !== lp.leadId) {
     return fail("A versão de referência não está disponível. Atualize a página.");
   }
+  const active = await getLpRefinementJobs(lpId);
+  if (active.some((job) => job.status === "pending" || job.status === "processing")) {
+    fail("Já existe um refinamento desta LP na fila ou em execução.");
+  }
   const key = createHash("sha256").update(JSON.stringify([lpId, baseVersionId, instructions])).digest("hex");
   try {
-    await enqueueJob({
+    const submitted = await enqueueJob({
       type: "regenerate_lp",
       leadId: lp.leadId,
       lpId,
@@ -66,6 +70,9 @@ export async function requestLpRefinementAction(lpId: string, formData: FormData
       payload: { lpId, leadId: lp.leadId, baseVersionId, baseVersion: base.version, instructions },
       maxAttempts: 1,
     });
+    if (submitted.status === "failed" || submitted.status === "cancelled") {
+      await retryJob(submitted.id, user.id);
+    }
   } catch (error) {
     logError("Falha ao solicitar refinamento da LP", error, { lpId });
     fail("Não foi possível solicitar o refinamento. Verifique os limites e o agente.");
