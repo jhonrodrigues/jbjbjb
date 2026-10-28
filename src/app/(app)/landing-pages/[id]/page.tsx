@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LpQualityPanel } from "@/components/lps/lp-quality-panel";
+import { getPool } from "@/db/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BadgeCheck, CircleAlert, ExternalLink, Eye, FileCode2, Globe2, Pencil, UserRound } from "lucide-react";
@@ -48,10 +49,32 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
   const status = (latest?.status ?? lp.status ?? "draft") as keyof typeof LP_STATUS_TONE;
   const hasHtml = Boolean(latest?.htmlSnapshot || lp.html);
 
+  // A comparação visual pode rejeitar a versão mais recente. Até que uma
+  // candidata passe por todas as verificações, o baseline continua sendo a referência.
+  let referenceVersion: number | null = null;
+  let referenceUnavailable = false;
+  try {
+    const result = await getPool().query<{ baseline_version: number }>(
+      "SELECT baseline_version FROM jb_agent_lp_ab_comparisons WHERE lp_id::text = $1 ORDER BY id DESC LIMIT 1",
+      [id],
+    );
+    referenceVersion = result.rows[0]?.baseline_version ?? null;
+  } catch (err) {
+    if (!(err && typeof err === "object" && "code" in err && err.code === "42P01")) {
+      referenceUnavailable = true;
+    }
+  }
+  const previewVersion = referenceVersion === null
+    ? latest
+    : versions.find((version) => version.version === referenceVersion) ?? null;
+  const previewHasHtml = !referenceUnavailable && (
+    previewVersion?.htmlSnapshot || (referenceVersion === null && lp.html)
+  );
+
   let previewUrl: string | null = null;
-  if (hasHtml) {
+  if (previewHasHtml) {
     try {
-      previewUrl = `/api/lp-preview/${encodeURIComponent(id)}?token=${createPreviewToken(id, latest?.htmlSnapshot ? latest.id : undefined)}`;
+      previewUrl = `/api/lp-preview/${encodeURIComponent(id)}?token=${createPreviewToken(id, previewVersion?.htmlSnapshot ? previewVersion.id : undefined)}`;
     } catch {
       previewUrl = null;
     }
@@ -101,7 +124,7 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
 
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={LP_STATUS_TONE[status] ?? "outline"}>{labelFor(LP_STATUS_LABELS, status, "Rascunho")}</Badge>
-        {latest ? <Badge variant="default">Versão {latest.version}</Badge> : null}
+        {latest ? <Badge variant="default">Mais recente: versão {latest.version}</Badge> : null}
         {latest ? <span className="text-[10px] text-[var(--muted)]">{latest.template}</span> : null}
         <span className="text-[10px] text-[var(--muted-2)]">Criada em {formatDateTime(lp.criadoEm)}</span>
         {lead ? (
@@ -119,7 +142,7 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
               <span className="size-2 rounded-full bg-[var(--warning)]/70" />
               <span className="size-2 rounded-full bg-[var(--success)]/70" />
             </div>
-            <span className="font-mono text-[9px] text-[var(--muted-2)]">preview seguro · sandbox</span>
+            <span className="font-mono text-[9px] text-[var(--muted-2)]">preview seguro · sandbox{previewVersion ? ` · versão ${previewVersion.version}` : ""}</span>
           </div>
           {previewUrl ? (
             <iframe
@@ -136,7 +159,7 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
                 title={hasHtml ? "Preview indisponível" : "HTML ainda não gerado"}
                 description={
                   hasHtml
-                    ? "AUTH_SECRET não está configurado, então o token de preview não pode ser emitido."
+                    ? "Não foi possível carregar com segurança a versão de referência. Confira as avaliações e tente novamente."
                     : "O agente de LP ainda não produziu o HTML desta demonstração. Enfileire a geração no lead."
                 }
               />
