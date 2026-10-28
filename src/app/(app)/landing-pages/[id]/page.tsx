@@ -56,12 +56,27 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
   // candidata passe por todas as verificações, o baseline continua sendo a referência.
   let referenceVersion: number | null = null;
   let referenceUnavailable = false;
+  const comparisonByCandidate = new Map<number, { baseline: number; winner: string; passed: boolean }>();
   try {
-    const result = await getPool().query<{ baseline_version: number }>(
-      "SELECT baseline_version FROM jb_agent_lp_ab_comparisons WHERE lp_id::text = $1 ORDER BY id DESC LIMIT 1",
+    const result = await getPool().query<{
+      baseline_version: number;
+      candidate_version: number;
+      visual_winner: string;
+      visual_pass: boolean;
+    }>(
+      "SELECT baseline_version,candidate_version,visual_winner,visual_pass FROM jb_agent_lp_ab_comparisons WHERE lp_id::text = $1 ORDER BY id DESC LIMIT 100",
       [id],
     );
     referenceVersion = result.rows[0]?.baseline_version ?? null;
+    for (const comparison of result.rows) {
+      if (!comparisonByCandidate.has(comparison.candidate_version)) {
+        comparisonByCandidate.set(comparison.candidate_version, {
+          baseline: comparison.baseline_version,
+          winner: comparison.visual_winner,
+          passed: comparison.visual_pass,
+        });
+      }
+    }
   } catch (err) {
     if (!(err && typeof err === "object" && "code" in err && err.code === "42P01")) {
       referenceUnavailable = true;
@@ -234,7 +249,19 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
                     </div>
                     <p className="mt-1 text-[9px] text-[var(--muted-2)]">{formatDateTime(version.createdAt)}</p>
                     {version.htmlSnapshot ? <a className="mt-2 inline-block text-xs underline" href={`/api/lp-preview/${encodeURIComponent(id)}?token=${createPreviewToken(id, version.id)}`} target="_blank" rel="noopener noreferrer">Abrir v{version.version}</a> : null}
-                    {version.config.source === "08R" ? <p className="mt-1 text-xs text-[var(--muted)]">Refinamento controlado · avaliação pendente</p> : null}
+                    {version.config.source === "08R" ? (
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        {(() => {
+                          const comparison = comparisonByCandidate.get(version.version);
+                          if (!comparison) return "Refinamento controlado · avaliação pendente";
+                          if (comparison.passed) return "Melhoria visual identificada · revisão técnica e comercial pendente";
+                          const outcome = comparison.winner === "tie"
+                            ? "empate"
+                            : comparison.winner === "A" ? "referência preferida" : "ganho insuficiente";
+                          return `Comparada com v${comparison.baseline} · ${outcome} · referência mantida`;
+                        })()}
+                      </p>
+                    ) : null}
                   </div>
                 ))}
               </div>
