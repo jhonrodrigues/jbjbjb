@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LpQualityPanel } from "@/components/lps/lp-quality-panel";
 import { getPool } from "@/db/client";
+import { getLpRefinementJobs } from "@/lib/jobs";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BadgeCheck, CircleAlert, ExternalLink, Eye, FileCode2, Globe2, Pencil, UserRound } from "lucide-react";
@@ -12,7 +13,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { LP_STATUS_LABELS, LP_STATUS_TONE, labelFor } from "@/lib/labels";
+import { LP_STATUS_LABELS, LP_STATUS_TONE, JOB_STATUS_LABELS, JOB_STATUS_TONE, labelFor } from "@/lib/labels";
 import { formatDateTime, toPrettyJson } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Landing page" };
@@ -45,6 +46,8 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
     lp.leadId ? getLeadById(lp.leadId).catch(() => null) : Promise.resolve(null),
   ]);
 
+  const refinements = await getLpRefinementJobs(id).catch(() => []);
+  const activeRefinement = refinements.some((job) => job.status === "pending" || job.status === "processing");
   const latest = versions[0] ?? null;
   const status = (latest?.status ?? lp.status ?? "draft") as keyof typeof LP_STATUS_TONE;
   const hasHtml = Boolean(latest?.htmlSnapshot || lp.html);
@@ -180,11 +183,26 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
               <textarea id="refinement-instructions" name="instructions" required maxLength={2000} rows={5}
                 placeholder="Ex.: melhore a hierarquia da primeira dobra e o espaçamento no celular."
                 className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] p-2 text-xs" />
-              <Button type="submit" variant="outline" size="sm" disabled={process.env.LP_REFINEMENT_WORKER_READY !== "true" || !previewVersion?.htmlSnapshot}>
+              <Button type="submit" variant="outline" size="sm" disabled={process.env.LP_REFINEMENT_WORKER_READY !== "true" || !previewVersion?.htmlSnapshot || activeRefinement}>
                 Gerar nova versão
               </Button>
               {process.env.LP_REFINEMENT_WORKER_READY !== "true" ? <p className="text-[10px] text-[var(--muted)]">Refinamento orientado ainda não disponível.</p> : null}
+              {activeRefinement ? <p className="text-[10px] text-[var(--muted)]">Já existe um refinamento em andamento. Confira o status abaixo.</p> : null}
             </form>
+            {refinements.length > 0 ? (
+              <div className="mt-4 space-y-2 border-t border-[var(--line)] pt-3">
+                <p className="text-[10px] font-semibold">Solicitações recentes</p>
+                {refinements.map((job) => (
+                  <div key={job.id} className="flex items-center justify-between gap-2 text-xs">
+                    <Link href={`/agentes/${job.id}`} className="underline underline-offset-2">
+                      {formatDateTime(job.createdAt)}
+                    </Link>
+                    <Badge variant={JOB_STATUS_TONE[job.status]}>{JOB_STATUS_LABELS[job.status]}</Badge>
+                  </div>
+                ))}
+                <p className="text-[10px] text-[var(--muted)]">Abra a tarefa para consultar erros ou reenfileirar uma falha.</p>
+              </div>
+            ) : null}
           </div>
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
             <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-2)]">Aprovação</p>
