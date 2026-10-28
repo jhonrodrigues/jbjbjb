@@ -503,6 +503,48 @@ export async function getLegacyLpsForLeadIds(
   }));
 }
 
+type LegacyBrandAssets = {
+  logoStatus: string | null;
+  logoSource: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  backgroundColor: string | null;
+  visualStyle: string | null;
+  notes: string | null;
+};
+
+async function getLegacyBrandAssets(id: string): Promise<LegacyBrandAssets | null> {
+  try {
+    const result = await getPool().query<{
+      logo_status: string | null;
+      logo_source: string | null;
+      brand_primary_color: string | null;
+      brand_secondary_color: string | null;
+      brand_background_color: string | null;
+      brand_style: string | null;
+      brand_notes: string | null;
+    }>(
+      `SELECT logo_status, logo_source, brand_primary_color, brand_secondary_color,
+              brand_background_color, brand_style, brand_notes
+         FROM jb_agent_brand_assets WHERE lead_id::text = $1 LIMIT 1`,
+      [id],
+    );
+    const row = result.rows[0];
+    return row ? {
+      logoStatus: row.logo_status,
+      logoSource: row.logo_source,
+      primaryColor: row.brand_primary_color,
+      secondaryColor: row.brand_secondary_color,
+      backgroundColor: row.brand_background_color,
+      visualStyle: row.brand_style,
+      notes: row.brand_notes,
+    } : null;
+  } catch (error) {
+    if ((error as { code?: string }).code === "42P01") return null;
+    throw error;
+  }
+}
+
 export async function getLeadDetailsBundle(id: string) {
   const lead = await getLeadById(id);
   if (!lead) return null;
@@ -540,9 +582,12 @@ export async function getLeadDetailsBundle(id: string) {
         .limit(30),
     ]);
 
+  const brandAssets = await getLegacyBrandAssets(id);
+
   return {
     lead,
     brand: brand[0] ?? null,
+    brandAssets,
     versions: versions.map(normalizeVersion),
     contacts: contactRows,
     contactEvents: contactEventRows,
