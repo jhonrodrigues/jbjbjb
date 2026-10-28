@@ -7,7 +7,7 @@ import { ArrowLeft, BadgeCheck, CircleAlert, ExternalLink, Eye, FileCode2, Globe
 import { getLegacyLpById, getLpVersionsForLp } from "@/lib/legacy";
 import { getLeadById } from "@/lib/legacy";
 import { createPreviewToken } from "@/lib/lp-preview";
-import { setLpStatusAction } from "@/actions/lps";
+import { requestLpRefinementAction, setLpStatusAction } from "@/actions/lps";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -169,6 +169,23 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
 
         <div className="space-y-4">
           <LpQualityPanel lpId={id} />
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
+            <h2 className="text-sm font-semibold">Melhorar esta página</h2>
+            <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted)]">
+              Descreva as melhorias. Uma nova versão será criada em rascunho a partir da versão {previewVersion?.version ?? "de referência"}; as anteriores serão preservadas.
+            </p>
+            <form action={requestLpRefinementAction.bind(null, id)} className="mt-3 space-y-3">
+              <input type="hidden" name="baseVersionId" value={previewVersion?.id ?? ""} />
+              <label htmlFor="refinement-instructions" className="text-[10px] font-medium">O que melhorar na próxima versão?</label>
+              <textarea id="refinement-instructions" name="instructions" required maxLength={2000} rows={5}
+                placeholder="Ex.: melhore a hierarquia da primeira dobra e o espaçamento no celular."
+                className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] p-2 text-xs" />
+              <Button type="submit" variant="outline" size="sm" disabled={process.env.LP_REFINEMENT_WORKER_READY !== "true" || !previewVersion?.htmlSnapshot}>
+                Gerar nova versão
+              </Button>
+              {process.env.LP_REFINEMENT_WORKER_READY !== "true" ? <p className="text-[10px] text-[var(--muted)]">Refinamento orientado ainda não disponível.</p> : null}
+            </form>
+          </div>
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
             <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-2)]">Aprovação</p>
             <h2 className="mt-0.5 text-sm font-semibold tracking-tight">Status da demonstração</h2>
