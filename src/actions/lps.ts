@@ -53,7 +53,7 @@ export async function requestLpRefinementAction(lpId: string, formData: FormData
   const [lp, versions] = await Promise.all([getLegacyLpById(lpId), getLpVersionsForLp(lpId)]);
   const base = versions.find((version) => version.id === baseVersionId);
   if (!lp?.leadId || !base?.htmlSnapshot || base.leadId !== lp.leadId) {
-    fail("A versão de referência não está disponível. Atualize a página.");
+    return fail("A versão de referência não está disponível. Atualize a página.");
   }
   const key = createHash("sha256").update(JSON.stringify([lpId, baseVersionId, instructions])).digest("hex");
   try {
