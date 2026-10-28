@@ -74,7 +74,7 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
   }
 
   if (!bundle) notFound();
-  const { lead, brand, versions, contacts, contactEvents, jobs, activity } = bundle;
+  const { lead, brand, brandAssets, versions, contacts, contactEvents, jobs, activity } = bundle;
   const campaigns = await getCampaignOptions();
   const discarded = Boolean(lead.discardedAt);
   const analysis = parseJsonValue(lead.analiseIa);
@@ -269,6 +269,17 @@ export default async function LeadDetailPage({ params, searchParams }: PageProps
                     <span key={color} className="size-4 rounded border border-[var(--line)]" style={{ background: color ?? undefined }} title={color ?? undefined} />
                   ))}
                 </div>
+              </div>
+            ) : brandAssets ? (
+              <div className="mt-4 space-y-2.5 text-[10px]">
+                <p className="text-[var(--muted)]">Dados pesquisados pelo agente; sujeitos à validação.</p>
+                <BrandLine label="Status do logo" value={brandAssets.logoStatus} />
+                <BrandLine label="Origem do logo" value={brandAssets.logoSource} />
+                <BrandLine label="Estilo" value={brandAssets.visualStyle} />
+                <BrandLine label="Cor principal" value={brandAssets.primaryColor} />
+                <BrandLine label="Cor secundária" value={brandAssets.secondaryColor} />
+                <BrandLine label="Cor de fundo" value={brandAssets.backgroundColor} />
+                <BrandLine label="Observações" value={brandAssets.notes} />
               </div>
             ) : (
               <p className="mt-3 text-[10px] text-[var(--muted)]">Nenhum brand profile sugerido ou confirmado.</p>
