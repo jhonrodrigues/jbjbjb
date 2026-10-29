@@ -43,8 +43,12 @@ BEGIN
        SET lp_id = NEW.lp_id,
            stage = next_stage,
            next_action = CASE
-             WHEN next_stage = 'aguardando_aprovacao' THEN 'Revisar demonstracao antes do contato'
-             ELSE 'Preparar abordagem e revisar o canal comercial'
+             WHEN c.next_action IS NULL
+               OR c.next_action IN ('Revisar demonstracao antes do contato','Preparar abordagem e revisar o canal comercial')
+             THEN CASE WHEN next_stage = 'aguardando_aprovacao'
+               THEN 'Revisar demonstracao antes do contato'
+               ELSE 'Preparar abordagem e revisar o canal comercial' END
+             ELSE c.next_action
            END,
            updated_at = now()
      WHERE c.id = existing_id
