@@ -111,6 +111,9 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
                 <ArrowLeft /> Landing pages
               </Link>
             </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/operacao">Pipeline comercial</Link>
+            </Button>
             {previewUrl ? (
               <Button asChild variant="outline" size="sm">
                 <a href={previewUrl} target="_blank" rel="noopener noreferrer">
@@ -120,7 +123,7 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
             ) : null}
             {status !== "published" ? (
               <form action={setLpStatusAction.bind(null, id, "published")}>
-                <Button type="submit" variant="accent" size="sm" disabled={!hasHtml}>
+                <Button type="submit" variant="accent" size="sm" disabled={!hasHtml || status !== "approved"}>
                   <Globe2 /> Publicar
                 </Button>
               </form>
@@ -225,12 +228,13 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
             <div className="mt-4 grid grid-cols-2 gap-2">
               <StatusButton lpId={id} status="draft" label="Rascunho" current={status} />
               <StatusButton lpId={id} status="approved" label="Aprovada" current={status} />
-              <StatusButton lpId={id} status="published" label="Publicada" current={status} />
+              <StatusButton lpId={id} status="published" label="Publicada" current={status} disabled={status !== "approved" && status !== "published"} />
               <StatusButton lpId={id} status="archived" label="Arquivada" current={status} />
             </div>
             <p className="mt-3 text-[10px] leading-relaxed text-[var(--muted-2)]">
               Publicar aqui atualiza o status no painel e, quando a coluna legada existe, também a LP original.
-              Links públicos continuam privados até a publicação pelo fluxo de produção.
+              Aprovar a demonstração libera a oportunidade para preparar o contato comercial.
+              Publicar requer aprovação prévia; a entrega oficial ao cliente continua separada.
             </p>
           </div>
 
@@ -300,13 +304,13 @@ export default async function LandingPageDetail({ params, searchParams }: PagePr
   );
 }
 
-function StatusButton({ lpId, status, label, current }: { lpId: string; status: string; label: string; current: string }) {
+function StatusButton({ lpId, status, label, current, disabled = false }: { lpId: string; status: string; label: string; current: string; disabled?: boolean }) {
   if (status === current) {
     return <Button variant="outline" size="sm" disabled className="justify-start"><BadgeCheck /> {label}</Button>;
   }
   return (
     <form action={setLpStatusAction.bind(null, lpId, status)}>
-      <Button type="submit" variant="ghost" size="sm" className="w-full justify-start"><Pencil /> {label}</Button>
+      <Button type="submit" variant="ghost" size="sm" disabled={disabled} className="w-full justify-start"><Pencil /> {label}</Button>
     </form>
   );
 }
