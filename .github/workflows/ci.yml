@@ -1,0 +1,25 @@
+name: CI — JB Agent
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AUTH_SECRET: test-secret-with-more-than-32-characters
+      LP_PREVIEW_SECRET: test-preview-secret-with-more-than-32-characters
+      INTERNAL_API_SECRET: test-internal-secret-for-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
