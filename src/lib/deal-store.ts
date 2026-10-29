@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { contactEvents } from "@/db/schema";
 import { deriveDealState, type DealEvent } from "@/lib/deals";
