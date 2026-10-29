@@ -188,9 +188,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               <h2 className="text-sm font-semibold tracking-tight">Registrar interação</h2>
             </div>
             <form action={registerContactEventAction.bind(null, id)} className="mt-3 space-y-2">
-              <select name="type" className={SELECT} defaultValue="contato">
-                <option value="contato">Contato realizado</option>
-                <option value="resposta">Resposta recebida</option>
+              <select name="type" className={SELECT} defaultValue="nota">
                 <option value="proposta">Proposta enviada</option>
                 <option value="venda">Venda</option>
                 <option value="nota">Nota interna</option>
