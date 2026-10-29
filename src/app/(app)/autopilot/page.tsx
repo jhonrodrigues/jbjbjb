@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Bot, Hand, MessageCircle, PauseCircle, PlayCircle, ShieldAlert } from "lucide-react";
 import { requireUser, isAdmin } from "@/lib/auth-helpers";
-import { getSalesStats, isSalesPaused, listSalesThreads } from "@/lib/sales-store";
-import { setSalesPausedAction } from "@/actions/sales-autopilot";
+import { getSalesStats, isSalesPaused, listSalesThreads, getSalesInstructions } from "@/lib/sales-store";
+import { setSalesPausedAction, saveSalesInstructionsAction } from "@/actions/sales-autopilot";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
@@ -19,11 +19,12 @@ export default async function SalesAutopilotPage({ searchParams }: Props) {
   const workerEnabled = process.env.JB_SALES_WORKER_ENABLED === "true";
   const autoSend = process.env.JB_SALES_AUTOSEND_ENABLED === "true";
   let paused = true;
+  let instructions = "";
   let threads: Awaited<ReturnType<typeof listSalesThreads>> = [];
   let stats: Awaited<ReturnType<typeof getSalesStats>> | null = null;
   let error: string | null = null;
   try {
-    [paused,threads,stats] = await Promise.all([isSalesPaused(),listSalesThreads(),getSalesStats()]);
+    [paused,threads,stats,instructions] = await Promise.all([isSalesPaused(),listSalesThreads(),getSalesStats(),getSalesInstructions()]);
   } catch {
     error = "Não foi possível ler o motor comercial. Confirme a migração 0004 no PostgreSQL.";
   }
@@ -65,6 +66,21 @@ export default async function SalesAutopilotPage({ searchParams }: Props) {
           pode receber resposta automática quando ambos os controles e o gateway de envio estiverem configurados.
         </p>
       </div>
+      {isAdmin(user) ? (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
+          <h2 className="text-sm font-semibold">Instruções comerciais do vendedor</h2>
+          <p className="mt-1 text-[11px] text-[var(--muted)]">
+            Personalize tom, objeções e perguntas. O prompt fixo de segurança, as regras de canal
+            e os limites operacionais não são alterados por este texto.
+          </p>
+          <form action={saveSalesInstructionsAction} className="mt-3 space-y-2">
+            <textarea name="instructions" defaultValue={instructions} maxLength={4000}
+              rows={6} className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] p-3 text-xs leading-relaxed"
+              placeholder="Ex.: explique benefícios em linguagem simples; pergunte uma coisa por vez; use tom consultivo; sem insistência..." />
+            <Button type="submit" size="sm" variant="outline">Salvar instruções</Button>
+          </form>
+        </div>
+      ) : null}
       <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
         <div className="flex items-center gap-2">
           <MessageCircle className="size-4 text-[var(--muted)]"/>
