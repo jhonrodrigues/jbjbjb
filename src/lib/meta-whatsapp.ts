@@ -7,6 +7,7 @@ export type MetaInboundText = {
   displayName: string | null;
   campaignKey: string | null;
   adKey: string | null;
+  isAdReferral: boolean;
 };
 
 export function isValidMetaSignature(rawBody: string, signature: string | null, appSecret: string): boolean {
@@ -53,6 +54,7 @@ export function parseMetaWhatsAppInbound(payload: unknown, phoneNumberId: string
         collected.push({
           senderId:from,providerMessageId:id,text:body.trim(),
           displayName:name ? name.trim() : null,
+          isAdReferral:isAd,
           campaignKey:null,adKey:isAd && ad && /^[\w.:-]+$/.test(ad) ? ad : null,
         });
       }
