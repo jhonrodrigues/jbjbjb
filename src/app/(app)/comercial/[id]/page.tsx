@@ -97,7 +97,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
             <form action={moveContactStageAction.bind(null, id)} className="mt-3 flex flex-col gap-2 sm:flex-row">
               <select name="stage" defaultValue={contact.stage} className={SELECT}>
                 {CRM_STAGE_COLUMNS.map((stage) => (
-                  <option key={stage} value={stage}>{STAGE_LABELS[stage]}</option>
+                  <option key={stage} value={stage} disabled={stage === "fechado" || stage === "proposta_enviada"}>{STAGE_LABELS[stage]}</option>
                 ))}
               </select>
               <input
@@ -194,8 +194,6 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
             </div>
             <form action={registerContactEventAction.bind(null, id)} className="mt-3 space-y-2">
               <select name="type" className={SELECT} defaultValue="nota">
-                <option value="proposta">Proposta enviada</option>
-                <option value="venda">Venda</option>
                 <option value="nota">Nota interna</option>
               </select>
               <textarea
