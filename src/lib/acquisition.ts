@@ -108,6 +108,7 @@ export async function ingestVerifiedWhatsApp(input: {
   senderId: string; displayName: string | null;
   providerMessageId: string; text: string;
   campaignKey: string | null; adKey: string | null; isAdReferral: boolean;
+  providerSentAt: Date;
 }) {
   // Não inferir autorização de publicidade; é apenas resposta à conversa
   // iniciada pelo cliente, que o webhook oficial autenticou.
@@ -120,7 +121,7 @@ export async function ingestVerifiedWhatsApp(input: {
   const message = await ingestSalesInbound({
     contactId:identity.contactId,channel:"whatsapp",
     providerMessageId:input.providerMessageId,text:input.text,
-    customerInitiated:true,
+    customerInitiated:true,receivedAt:input.providerSentAt,
   });
   return { ...identity, ...message };
 }
