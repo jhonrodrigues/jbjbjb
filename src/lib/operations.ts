@@ -1,7 +1,7 @@
 import { getPool, hasDatabaseUrl } from "@/db/client";
 import { hasColumn, loadLegacySchema } from "./legacy-schema";
 
-export type OperationPhase = "preparacao" | "revisao" | "abordagem" | "conversa" | "negociacao" | "venda" | "perdido";
+export type OperationPhase = "preparacao" | "revisao" | "abordagem" | "conversa" | "negociacao" | "venda" | "entrega" | "entregue" | "perdido";
 
 export type OperationEntry = {
   contactId: string;
@@ -16,6 +16,8 @@ export type OperationEntry = {
   nextAction: string | null;
   updatedAt: Date;
   phase: OperationPhase;
+  paid: boolean;
+  delivered: boolean;
 };
 
 export const OPERATION_PHASES: { id: OperationPhase; title: string; description: string }[] = [
@@ -24,13 +26,15 @@ export const OPERATION_PHASES: { id: OperationPhase; title: string; description:
   { id: "abordagem", title: "Pronto para contato", description: "Demonstração aprovada; preparar abordagem" },
   { id: "conversa", title: "Em conversa", description: "Contato registrado e respostas" },
   { id: "negociacao", title: "Negociação", description: "Propostas e acompanhamento" },
-  { id: "venda", title: "Venda fechada", description: "Próxima etapa: entrega do site" },
+  { id: "venda", title: "Venda fechada", description: "Venda registrada sem checklist iniciado" },
+  { id: "entrega", title: "Em entrega", description: "Pagamento confirmado e tarefas pendentes" },
+  { id: "entregue", title: "Entregues", description: "Checklist de entrega concluído" },
   { id: "perdido", title: "Perdido", description: "Oportunidades encerradas" },
 ];
 
-export function operationPhase(stage: string, lpStatus: string | null): OperationPhase {
+export function operationPhase(stage: string, lpStatus: string | null, paid = false, delivered = false): OperationPhase {
   if (stage === "perdido") return "perdido";
-  if (stage === "fechado") return "venda";
+  if (stage === "fechado") return delivered ? "entregue" : paid ? "entrega" : "venda";
   if (stage === "em_negociacao" || stage === "proposta_enviada") return "negociacao";
   if (stage === "contatado" || stage === "respondeu") return "conversa";
   if (!lpStatus) return "preparacao";
@@ -61,6 +65,8 @@ export async function getOperationPipeline(): Promise<OperationEntry[]> {
     lp_status: string | null;
     next_action: string | null;
     updated_at: Date;
+    paid: boolean;
+    delivered: boolean;
   }>(`
     SELECT
       c.id::text AS contact_id,
@@ -73,6 +79,8 @@ export async function getOperationPipeline(): Promise<OperationEntry[]> {
       v.version AS lp_version,
       v.status AS lp_status,
       c.next_action,
+      EXISTS (SELECT 1 FROM jb_agent_contact_events e WHERE e.contact_id=c.id AND e.type='pagamento_confirmado') AS paid,
+      EXISTS (SELECT 1 FROM jb_agent_contact_events e WHERE e.contact_id=c.id AND e.type='entrega_concluida') AS delivered,
       c.updated_at
     FROM jb_agent_contacts c
     ${leadJoin}
@@ -98,6 +106,8 @@ export async function getOperationPipeline(): Promise<OperationEntry[]> {
     lpStatus: row.lp_status,
     nextAction: row.next_action,
     updatedAt: row.updated_at,
-    phase: operationPhase(row.stage, row.lp_status),
+    paid: row.paid,
+    delivered: row.delivered,
+    phase: operationPhase(row.stage, row.lp_status, row.paid, row.delivered),
   }));
 }
