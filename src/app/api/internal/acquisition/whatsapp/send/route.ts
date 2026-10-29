@@ -53,10 +53,10 @@ export async function POST(request:NextRequest) {
     await client.query("BEGIN");
     try {
       const {rows:[context]}=await client.query<{
-        status:string;direction:string;channel:string;content:string;
+        status:string;direction:string;channel:string;content:string;in_reply_to:string|null;
         mode:"ai"|"human";opted_out:boolean;last_inbound_at:Date|null;
         external_user_id:string;stage:string;
-      }>(`SELECT msg.status,msg.direction,msg.channel,msg.content,
+      }>(`SELECT msg.status,msg.direction,msg.channel,msg.content,msg.in_reply_to,
            t.mode,t.opted_out,t.last_inbound_at,i.external_user_id,c.stage
          FROM jb_agent_sales_messages msg
          JOIN jb_agent_sales_threads t ON t.contact_id=msg.contact_id
@@ -73,12 +73,25 @@ export async function POST(request:NextRequest) {
       );
       if(!context||context.direction!=="outbound"||context.channel!=="whatsapp"||
          context.status!=="draft"||context.content!==body.text||!inbound||
+         context.in_reply_to!==inbound.id||
          ["fechado","perdido"].includes(context.stage)||
          !(await isSalesPaused(client)===false)||
          !canAutoReply({workerEnabled:true,paused:false,mode:context.mode,
             optedOut:context.opted_out,lastInboundAt:context.last_inbound_at,now:new Date()})) {
         await client.query("ROLLBACK");
         return jsonError("Envio bloqueado por estado, consentimento ou janela",409,"POLICY_BLOCK");
+      }
+      const {rows:[rate]}=await client.query<{last_minute:number;last_day:number}>(`
+        SELECT
+          count(*) FILTER (WHERE created_at >= now()-interval '1 minute')::integer AS last_minute,
+          count(*) FILTER (WHERE created_at >= now()-interval '24 hours')::integer AS last_day
+        FROM jb_agent_sales_messages
+        WHERE contact_id=$1 AND direction='outbound' AND status='sent'`,
+        [body.contactId],
+      );
+      if(Number(rate?.last_minute??0)>=2 || Number(rate?.last_day??0)>=30) {
+        await client.query("ROLLBACK");
+        return jsonError("Limite de respostas por contato atingido",429,"CONTACT_RATE_LIMIT");
       }
       const {rows:[newer]}=await client.query<{newer:boolean}>(`
         SELECT EXISTS(SELECT 1 FROM jb_agent_sales_messages m
