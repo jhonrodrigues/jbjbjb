@@ -37,6 +37,8 @@ export async function setLpStatusAction(lpId: string, status: string): Promise<v
 
   revalidatePath("/landing-pages");
   revalidatePath(`/landing-pages/${lpId}`);
+  revalidatePath("/operacao");
+  revalidatePath("/comercial");
   redirect(`/landing-pages/${encodeURIComponent(lpId)}?ok=${encodeURIComponent("Status atualizado.")}`);
 }
 
