@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, eq, gte } from "drizzle-orm";
+import { and, count, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { contactEvents, contacts } from "@/db/schema";
 import { requireUser } from "@/lib/auth-helpers";
@@ -30,8 +30,13 @@ export async function generateCommercialAiDraftAction(
     // Reserva de cota ANTES de chamar a IA. Serializa solicitações do mesmo contato
     // e impede cliques repetidos de gerar chamadas sem contabilização.
     await db.transaction(async tx => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"commercial-ai:" + user.id}))`);
       await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.id, contactId)).limit(1).for("update");
       const sinceDay = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const [{ total: userToday }] = await tx.select({ total: count() }).from(contactEvents)
+        .where(and(eq(contactEvents.createdBy, user.id),
+                   eq(contactEvents.type, "ia_solicitacao"), gte(contactEvents.createdAt, sinceDay)));
+      if (Number(userToday) >= 40) throw new Error("AI_RATE_LIMIT");
       const sinceMinute = new Date(Date.now() - 60 * 1000);
       const [{ total: contactToday }] = await tx.select({ total: count() }).from(contactEvents)
         .where(and(eq(contactEvents.contactId, contactId),
@@ -63,7 +68,7 @@ export async function generateCommercialAiDraftAction(
     return { ok: true, suggestion };
   } catch (error) {
     if (error instanceof Error && error.message === "AI_RATE_LIMIT") {
-      return { ok: false, error: "Limite de sugestões atingido para este contato (2/minuto ou 12/24h)." };
+      return { ok: false, error: "Limite de IA atingido (2/minuto e 12/24h por contato, ou 40/24h por operador)." };
     }
     logError("Falha ao gerar sugestão comercial por IA", error, { contactId, kind });
     return { ok: false, error: "A IA não conseguiu gerar o rascunho. Verifique o modelo e a chave de API." };
