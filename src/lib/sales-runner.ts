@@ -134,7 +134,7 @@ export async function runSalesTick(): Promise<SalesTickResult> {
       `SELECT direction,content FROM (
          SELECT direction,content,created_at,id FROM jb_agent_sales_messages
          WHERE contact_id=$1 AND (
-           (direction='inbound' AND status IN ('done','processing')) OR
+           (direction='inbound' AND status IN ('done','processing','held')) OR
            (direction='outbound' AND status='sent')
          ) ORDER BY created_at DESC,id DESC LIMIT 16
        ) m ORDER BY created_at ASC,id ASC`,
