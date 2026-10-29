@@ -166,3 +166,20 @@ export async function getSalesThread(contactId: string): Promise<SalesThreadRow 
   );
   return rows[0] ?? null;
 }
+
+export async function getSalesInstructions(): Promise<string> {
+  const { rows } = await getPool().query<{ instructions: string | null }>(
+    "SELECT value->>'instructions' AS instructions FROM jb_agent_settings WHERE key='sales_instructions'",
+  );
+  const text = rows[0]?.instructions ?? "";
+  return text.length <= 4000 ? text : "";
+}
+
+export async function saveSalesInstructions(instructions: string,userId: string): Promise<void> {
+  await getPool().query(
+    `INSERT INTO jb_agent_settings(key,value,updated_by,updated_at)
+     VALUES('sales_instructions',jsonb_build_object('instructions',$1::text),$2::uuid,now())
+     ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+    [instructions,userId],
+  );
+}
