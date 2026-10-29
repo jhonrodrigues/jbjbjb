@@ -8,7 +8,7 @@ const payload={
   entry:[{changes:[{field:"messages",value:{
     metadata:{phone_number_id:"12345"},contacts:[{wa_id:"5511999999999",profile:{name:"Cliente Teste"}}],
     messages:[{from:"5511999999999",id:"wamid.example01",type:"text",
-      text:{body:"Olá, quero conhecer o site."},
+      text:{body:"Olá, quero conhecer o site."},timestamp:String(Math.floor(Date.now()/1000)),
       referral:{source_type:"ad",source_id:"12345678"}}],
   }}]}],
 };
@@ -36,7 +36,7 @@ describe("Cloud API — segurança e parsing",()=>{
   it("ignora status, mídia e payloads sem texto",()=>{
     const value={metadata:{phone_number_id:"12345"},messages:[
       {from:"5511999999999",id:"wamid.image",type:"image",image:{id:"1"}},
-      {from:"5511999999999",id:"wamid.empty",type:"text",text:{body:""}},
+      {from:"5511999999999",id:"wamid.empty",type:"text",timestamp:String(Math.floor(Date.now()/1000)),text:{body:""}},
     ]};
     const body={object:"whatsapp_business_account",entry:[{changes:[{field:"messages",value}]}]};
     expect(parseMetaWhatsAppInbound(body,"12345")).toEqual([]);
