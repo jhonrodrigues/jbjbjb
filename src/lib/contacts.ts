@@ -93,6 +93,9 @@ export async function getCrmContactsPage(filters: { campaignId?: string; stage?:
 
 export async function moveContactStage(contactId: string, stage: CrmStage, notes: string, userId?: string) {
   if (!CRM_STAGES.includes(stage) || notes.length > 4000) throw new Error("INVALID_CONTACT_EVENT");
+  if (stage === "fechado" || stage === "proposta_enviada") {
+    throw new Error("USE_FORMAL_DEAL_FLOW");
+  }
   return getDb().transaction(async (tx) => {
     const [contact] = await tx.select().from(contacts).where(eq(contacts.id, contactId)).limit(1).for("update");
     if (!contact) throw new Error("CONTACT_NOT_FOUND");
@@ -104,7 +107,7 @@ export async function moveContactStage(contactId: string, stage: CrmStage, notes
 }
 
 export async function registerContactEvent(contactId: string, type: string, notes: string, userId?: string) {
-  if (!["contato", "resposta", "proposta", "venda", "nota"].includes(type) || notes.length > 4000) throw new Error("INVALID_CONTACT_EVENT");
+  if (!["contato", "resposta", "nota"].includes(type) || notes.length > 4000) throw new Error("INVALID_CONTACT_EVENT");
   return getDb().transaction(async (tx) => {
     const [contact] = await tx.select().from(contacts).where(eq(contacts.id, contactId)).limit(1).for("update");
     if (!contact) throw new Error("CONTACT_NOT_FOUND");
