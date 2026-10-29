@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Bot,
+  MessagesSquare,
   Building2,
   ChartNoAxesCombined,
   KanbanSquare,
@@ -29,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/campanhas", label: "Campanhas", icon: ChartNoAxesCombined },
       { href: "/leads", label: "Leads", icon: Building2 },
       { href: "/operacao", label: "Pipeline de sites", icon: ListChecks },
+      { href: "/autopilot", label: "Autopilot comercial", icon: MessagesSquare },
       { href: "/landing-pages", label: "Landing pages", icon: Sparkles },
       { href: "/comercial", label: "Comercial", icon: KanbanSquare },
     ],
