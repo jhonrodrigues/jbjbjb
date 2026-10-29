@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, ChartNoAxesCombined, CircleDollarSign, MessageCircle, Target, TrendingUp } from "lucide-react";
+import { ArrowUpRight, CircleDollarSign, MessageCircle, Target, TrendingUp } from "lucide-react";
 import { requireUser,isAdmin } from "@/lib/auth-helpers";
 import { getAcquisitionSnapshot } from "@/lib/acquisition-metrics";
 import { saveAcquisitionSpendAction } from "@/actions/acquisition";
@@ -29,6 +29,10 @@ export default async function AcquisitionDashboard({searchParams}:Props) {
   try { data=await getAcquisitionSnapshot(days); }
   catch { error="Não foi possível consultar aquisição. Confirme a migração 0005."; }
   const totals=data?.totals;
+  const metaInboundConfigured=Boolean(process.env.META_WHATSAPP_APP_SECRET&&
+    process.env.META_WHATSAPP_VERIFY_TOKEN&&process.env.META_WHATSAPP_PHONE_NUMBER_ID);
+  const metaOutboundConfigured=Boolean(process.env.META_WHATSAPP_ACCESS_TOKEN&&
+    process.env.META_GRAPH_API_VERSION&&process.env.JB_SALES_OUTBOUND_SECRET);
   return (
     <div className="space-y-5">
       <PageHeader eyebrow="Crescimento" title="Aquisição e conversão"
@@ -36,6 +40,15 @@ export default async function AcquisitionDashboard({searchParams}:Props) {
         actions={<Button asChild size="sm" variant="outline"><Link href="/autopilot"><MessageCircle/> Conversas</Link></Button>}/>
       {error||params.error?<p className="rounded-lg border border-[var(--danger)]/25 p-3 text-xs text-[var(--danger)]">{error||params.error}</p>:null}
       {params.ok?<p className="rounded-lg border border-[var(--success)]/25 p-3 text-xs text-[var(--success)]">{params.ok}</p>:null}
+      <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 text-xs">
+        <p className="font-semibold">WhatsApp Business Cloud API</p>
+        <p className="mt-1 text-[var(--muted)]">
+          Entrada oficial: {metaInboundConfigured?"credenciais presentes":"pendente"} ·
+          Saída oficial: {metaOutboundConfigured?"credenciais presentes":"pendente"} ·
+          Envio automático: {process.env.JB_SALES_AUTOSEND_ENABLED==="true"?"flag habilitada":"desligado"}.
+          Credenciais presentes não garantem webhook registrado ou canal aprovado.
+        </p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-[var(--muted)]">Coorte de leads criados:</span>
         {([7,30,90] as const).map(n=>(
