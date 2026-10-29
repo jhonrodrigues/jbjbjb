@@ -36,6 +36,10 @@ Conheci a ${business}${where} e gostaria de saber se faz sentido conversar sobre
 Posso te explicar a ideia rapidamente?`;
 }
 
+export function canApproachLead(lpId: string | null, lpStatus: string | null): boolean {
+  return !lpId || lpStatus === "approved" || lpStatus === "published";
+}
+
 export function nextOutreachStage(
   current: string,
   interaction: "contato" | "resposta",
