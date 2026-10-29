@@ -143,7 +143,8 @@ export async function runSalesTick(): Promise<SalesTickResult> {
       [claimed.contact_id],
     );
     const decision = await generateSalesReply(history,{
-      businessName: lead?.empresa || acquisition?.display_name || "pessoa interessada",
+      businessName: lead?.empresa || "negócio ainda não informado",
+      customerName: acquisition?.display_name ?? null,
       niche: lead?.nicho ?? null,
       city: lead?.cidade ?? null,
       hasApprovedLp: ["approved","published"].includes(approved?.rows[0]?.status ?? ""),
