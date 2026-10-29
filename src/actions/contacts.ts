@@ -28,6 +28,7 @@ export async function moveContactStageAction(contactId: string, formData: FormDa
   const user = await requireUser();
   const stage = formString(formData, "stage") as CrmStage;
   if (!CRM_STAGES.includes(stage)) back(contactId, "Etapa inválida.", "error");
+  if (stage === "fechado" || stage === "proposta_enviada") back(contactId, "Use o fluxo Proposta, venda e entrega para avançar a negociação.", "error");
 
   try {
     const contact = await moveContactStage(contactId, stage, formString(formData, "notes"), user.id);
@@ -53,7 +54,7 @@ export async function moveContactStageAction(contactId: string, formData: FormDa
 export async function registerContactEventAction(contactId: string, formData: FormData): Promise<void> {
   const user = await requireUser();
   const type = formString(formData, "type") || "nota";
-  if (!["proposta", "venda", "nota"].includes(type)) back(contactId, "Tipo de evento inválido.", "error");
+  if (!["nota"].includes(type)) back(contactId, "Tipo de evento inválido.", "error");
 
   try {
     const contact = await registerContactEvent(contactId, type, formString(formData, "notes"), user.id);
