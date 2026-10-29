@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       utmSource:safeMarketingKey(data.utmSource),utmMedium:safeMarketingKey(data.utmMedium),
       utmCampaign:safeMarketingKey(data.utmCampaign),utmContent:safeMarketingKey(data.utmContent),
       eventKey:"form:"+data.submissionId,eventType:"form_submitted",
+      marketingOptIn:data.marketingOptIn,
     });
     // O opt-in de marketing é informado pela origem, mas NÃO habilita mensagens;
     // a evidência de consentimento precisa ser verificada e persistida no canal correspondente.
