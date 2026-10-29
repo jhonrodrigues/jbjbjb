@@ -5,7 +5,7 @@ import { ArrowLeft, Building2, CircleAlert, FileText, MessageSquare, Phone, User
 import { getCampaignById } from "@/lib/campaigns";
 import { getContactById, getContactEvents } from "@/lib/contacts";
 import { getLeadById, getLpVersionsForLp } from "@/lib/legacy";
-import { prepareOutreachMessage } from "@/lib/outreach";
+import { canApproachLead, prepareOutreachMessage } from "@/lib/outreach";
 import { saveOutreachDraftAction, recordManualOutreachAction, recordLeadReplyAction } from "@/actions/outreach";
 import { OutreachPanel } from "@/components/contacts/outreach-panel";
 import { moveContactStageAction, registerContactEventAction, updateContactAction } from "@/actions/contacts";
@@ -40,7 +40,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
   const lpVersions = contact.lpId ? await getLpVersionsForLp(contact.lpId).catch(() => []) : [];
   const lpStatus = lpVersions[0]?.status ?? null;
-  const canContact = !contact.lpId || lpStatus === "approved" || lpStatus === "published";
+  const canContact = canApproachLead(contact.lpId, lpStatus);
   const savedDraft = events.find(event => event.type === "abordagem_rascunho")?.notes;
   const initialMessage = savedDraft || prepareOutreachMessage(lead?.empresa, lead?.cidade, Boolean(contact.lpId));
 
