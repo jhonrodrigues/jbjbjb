@@ -86,6 +86,9 @@ export async function markProposalSentAction(id: string, form: FormData): Promis
   if (!confirmed || !["email","instagram","whatsapp","telefone","outro"].includes(channel) || note.length > 2000) {
     fail(id, "Confirme o envio manual e selecione o canal utilizado.");
   }
+  if (channel === "whatsapp" && form.get("waConsent") !== "on") {
+    fail(id, "Para registrar envio pelo WhatsApp, confirme autorização prévia para contato comercial.");
+  }
   try {
     await getDb().transaction(async tx => {
       const { contact, state } = await load(tx, id);
