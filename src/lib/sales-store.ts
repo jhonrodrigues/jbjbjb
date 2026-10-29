@@ -42,6 +42,7 @@ export async function ingestSalesInbound(input: {
   providerMessageId: string;
   text: string;
   customerInitiated: true;
+  receivedAt?: Date;
 }) {
   const client = await getPool().connect();
   try {
@@ -71,17 +72,22 @@ export async function ingestSalesInbound(input: {
 
       await client.query(
         `INSERT INTO jb_agent_sales_threads(contact_id,mode,opted_out,last_inbound_at)
-         VALUES ($1,'ai',$2,now())
+         VALUES ($1,'ai',$2,$3::timestamptz)
          ON CONFLICT(contact_id) DO UPDATE
-            SET last_inbound_at=now(),
+            SET last_inbound_at=greatest(coalesce(jb_agent_sales_threads.last_inbound_at,EXCLUDED.last_inbound_at),EXCLUDED.last_inbound_at),
                 opted_out=jb_agent_sales_threads.opted_out OR EXCLUDED.opted_out,
                 updated_at=now()`,
-        [input.contactId,stop],
+        [input.contactId,stop,input.receivedAt ?? new Date()],
+      );
+      await client.query(
+        `INSERT INTO jb_agent_contact_events(contact_id,type,notes,metadata)
+         VALUES ($1,'mensagem_recebida',$2,jsonb_build_object('channel',$3,'provider_message_id',$4))`,
+        [input.contactId,"Mensagem recebida do cliente",input.channel,input.providerMessageId],
       );
       if (!stop) {
         await client.query(
           `UPDATE jb_agent_contacts
-              SET stage=CASE WHEN stage IN ('pronto_para_contato','contatado')
+              SET stage=CASE WHEN stage IN ('identificado','qualificado','demonstracao_preparada','aguardando_aprovacao','pronto_para_contato','contatado')
                 THEN 'respondeu' ELSE stage END,
                   updated_at=now()
             WHERE id=$1`,

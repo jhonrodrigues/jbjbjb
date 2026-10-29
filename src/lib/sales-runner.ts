@@ -1,5 +1,6 @@
 import { getPool } from "@/db/client";
 import { getLeadById } from "@/lib/legacy";
+import { getAcquisitionProfile } from "@/lib/acquisition";
 import { generateSalesReply, type SalesHistoryMessage } from "./sales-ai";
 import { canAutoReply, isOptOut, type SalesChannel, type SalesMode } from "./sales-policy";
 import { isSalesPaused } from "./sales-store";
@@ -125,6 +126,7 @@ export async function runSalesTick(): Promise<SalesTickResult> {
     }
 
     const lead = await getLeadById(thread.lead_id).catch(() => null);
+    const acquisition = !lead ? await getAcquisitionProfile(claimed.contact_id) : null;
     const approved = thread.lp_id
       ? await client.query<{ status: string }>(
         "SELECT status FROM jb_agent_lp_versions WHERE lp_id=$1 ORDER BY version DESC LIMIT 1",[thread.lp_id],
@@ -141,7 +143,8 @@ export async function runSalesTick(): Promise<SalesTickResult> {
       [claimed.contact_id],
     );
     const decision = await generateSalesReply(history,{
-      businessName: lead?.empresa || "negócio local",
+      businessName: lead?.empresa || "negócio ainda não informado",
+      customerName: acquisition?.display_name ?? null,
       niche: lead?.nicho ?? null,
       city: lead?.cidade ?? null,
       hasApprovedLp: ["approved","published"].includes(approved?.rows[0]?.status ?? ""),
