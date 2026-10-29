@@ -8,6 +8,7 @@ export type MetaInboundText = {
   campaignKey: string | null;
   adKey: string | null;
   isAdReferral: boolean;
+  providerSentAt: Date;
 };
 
 export function isValidMetaSignature(rawBody: string, signature: string | null, appSecret: string): boolean {
@@ -44,6 +45,12 @@ export function parseMetaWhatsAppInbound(payload: unknown, phoneNumberId: string
         const id = string(msg.id,160);
         const from = string(msg.from,128);
         const body = string(object(msg.text)?.body,4000);
+        const unix = string(msg.timestamp,16);
+        const seconds = unix && /^\d{10,11}$/.test(unix) ? Number(unix) : NaN;
+        const providerSentAt = new Date(seconds * 1000);
+        if (!Number.isFinite(seconds) || !Number.isFinite(providerSentAt.getTime()) ||
+            providerSentAt.getTime() > Date.now()+300000 ||
+            providerSentAt.getTime() < Date.now()-30*86400000) continue;
         if (!id || !from || !body?.trim() || !/^[a-zA-Z0-9_.:-]{4,160}$/.test(id) ||
             !/^[a-zA-Z0-9_.:-]{5,128}$/.test(from)) continue;
         const profile = contacts.map(object).find(c => c?.wa_id === from);
@@ -54,7 +61,7 @@ export function parseMetaWhatsAppInbound(payload: unknown, phoneNumberId: string
         collected.push({
           senderId:from,providerMessageId:id,text:body.trim(),
           displayName:name ? name.trim() : null,
-          isAdReferral:isAd,
+          isAdReferral:isAd,providerSentAt,
           campaignKey:null,adKey:isAd && ad && /^[\w.:-]+$/.test(ad) ? ad : null,
         });
       }
