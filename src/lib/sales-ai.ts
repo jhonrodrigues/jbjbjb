@@ -4,6 +4,7 @@ import { getSalesInstructions } from "./sales-store";
 export type SalesHistoryMessage = { direction: "inbound" | "outbound"; content: string };
 export type SalesContext = {
   businessName: string;
+  customerName?: string | null;
   niche: string | null;
   city: string | null;
   hasApprovedLp: boolean;
