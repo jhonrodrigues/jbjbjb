@@ -51,7 +51,7 @@ export function parseMetaWhatsAppInbound(payload: unknown, phoneNumberId: string
         if (!Number.isFinite(seconds) || !Number.isFinite(providerSentAt.getTime()) ||
             providerSentAt.getTime() > Date.now()+300000 ||
             providerSentAt.getTime() < Date.now()-30*86400000) continue;
-        if (!id || !from || !body?.trim() || !/^[a-zA-Z0-9_.:-]{4,160}$/.test(id) ||
+        if (!id || !from || !body?.trim() || !/^[a-zA-Z0-9_.:/+=-]{4,160}$/.test(id) ||
             !/^[a-zA-Z0-9_.:-]{5,128}$/.test(from)) continue;
         const profile = contacts.map(object).find(c => c?.wa_id === from);
         const name = string(object(profile?.profile)?.name,160);
