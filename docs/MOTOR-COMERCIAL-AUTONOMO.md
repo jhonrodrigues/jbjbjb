@@ -11,7 +11,7 @@ A implementação requer um **gateway n8n de entrada** que valide mensagens reai
 - `POST /api/internal/sales/inbound`: recebe somente payload de um integrador interno autenticado e já validado contra assinatura do provedor.
 - `POST /api/internal/sales/tick`: executa **1** mensagem por chamada; lock PostgreSQL previne múltiplos workers simultâneos. n8n agenda um tick por minuto.
 - `src/lib/sales-ai.ts`: modelo OpenAI com contexto do CRM, últimas 16 mensagens e regras de vendas/handoff. Resposta validada em JSON.
-- `/autopilot`: painel de supervisão com fila, rascunhos, histórico, kill switch e handoff humano.
+- `/autopilot`: painel de supervisão com fila, rascunhos, histórico, kill switch, **editor de instruções comerciais** e handoff humano.
 - `/autopilot/[id]`: diálogo por contato, possibilidade de assumir o atendimento e registrar opt-out.
 
 ## Migração
@@ -104,4 +104,7 @@ Se não houver confirmação ou se ocorrer erro, a resposta permanece em `draft`
 - Templates aprovados para início de conversa; **o motor não inicia mensagens**.
 - Cobrança automática, negociação de preços, contratos eletrônicos e publicação.
 - Respostas com anexos, áudio, imagens e botões.
+- O editor de instruções adicionais não altera o prompt de segurança base. O painel salva o texto em `jb_agent_settings.sales_instructions`.
+- Limite preventivo adicional para envio automático: no máximo 2 mensagens por minuto e 30 por 24h para cada contato, além do limite global de processamento.
+- CI `.github/workflows/ci.yml` executa lint, tipo, testes e build no GitHub antes do merge.
 - Retry manual supervisionado de drafts, dashboard financeiro detalhado de tokens e retenção/expurgo automático.
