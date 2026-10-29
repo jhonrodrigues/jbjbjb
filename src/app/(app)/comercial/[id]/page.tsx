@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Building2, CircleAlert, MessageSquare, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, Building2, CircleAlert, FileText, MessageSquare, Phone, UserRound } from "lucide-react";
 import { getCampaignById } from "@/lib/campaigns";
 import { getContactById, getContactEvents } from "@/lib/contacts";
 import { getLeadById } from "@/lib/legacy";
@@ -62,6 +62,11 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         {lead ? (
           <Link href={`/leads/${lead.id}`} className="inline-flex items-center gap-1 text-[10px] text-[var(--muted)] hover:text-[var(--ink)]">
             <Building2 className="size-3" /> Abrir lead
+          </Link>
+        ) : null}
+        {contact.lpId ? (
+          <Link href={`/landing-pages/${encodeURIComponent(contact.lpId)}`} className="inline-flex items-center gap-1 text-[10px] text-[var(--accent-strong)] hover:underline">
+            <FileText className="size-3" /> Abrir demonstração
           </Link>
         ) : null}
         {lead?.telefone ? (
