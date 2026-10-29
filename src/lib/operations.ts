@@ -1,4 +1,5 @@
 import { getPool, hasDatabaseUrl } from "@/db/client";
+import { hasColumn, loadLegacySchema } from "./legacy-schema";
 
 export type OperationPhase = "preparacao" | "revisao" | "abordagem" | "conversa" | "negociacao" | "venda" | "perdido";
 
@@ -42,6 +43,12 @@ export async function getOperationPipeline(): Promise<OperationEntry[]> {
   if (!hasDatabaseUrl()) return [];
   // Uma oportunidade por contato, sem inferir empresas/receita. Os dados
   // vem das tabelas legadas e das versoes de LP persistidas pelo n8n.
+  const schema = await loadLegacySchema();
+  const hasLeadJoin = schema.leads.exists && hasColumn(schema.leads, "id");
+  const pick = (field: string) => hasLeadJoin && hasColumn(schema.leads, field)
+    ? `l."${field}"::text AS ${field}`
+    : `null::text AS ${field}`;
+  const leadJoin = hasLeadJoin ? `LEFT JOIN jb_agent_leads l ON l."id"::text = c.lead_id` : "";
   const { rows } = await getPool().query<{
     contact_id: string;
     lead_id: string;
@@ -58,9 +65,9 @@ export async function getOperationPipeline(): Promise<OperationEntry[]> {
     SELECT
       c.id::text AS contact_id,
       c.lead_id::text AS lead_id,
-      l.empresa::text AS empresa,
-      l.nicho::text AS nicho,
-      l.cidade::text AS cidade,
+      ${pick("empresa")},
+      ${pick("nicho")},
+      ${pick("cidade")},
       c.stage,
       COALESCE(v.lp_id, c.lp_id)::text AS lp_id,
       v.version AS lp_version,
@@ -68,7 +75,7 @@ export async function getOperationPipeline(): Promise<OperationEntry[]> {
       c.next_action,
       c.updated_at
     FROM jb_agent_contacts c
-    LEFT JOIN jb_agent_leads l ON l.id::text = c.lead_id
+    ${leadJoin}
     LEFT JOIN LATERAL (
       SELECT lp_id, version, status
       FROM jb_agent_lp_versions
