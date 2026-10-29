@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, CircleAlert, FileText, MessageSquare, Phone, UserRound } from "lucide-react";
 import { getCampaignById } from "@/lib/campaigns";
 import { getContactById, getContactEvents } from "@/lib/contacts";
-import { getLeadById } from "@/lib/legacy";
+import { getLeadById, getLpVersionsForLp } from "@/lib/legacy";
+import { canApproachLead, prepareOutreachMessage } from "@/lib/outreach";
+import { saveOutreachDraftAction, recordManualOutreachAction, recordLeadReplyAction } from "@/actions/outreach";
+import { OutreachPanel } from "@/components/contacts/outreach-panel";
 import { moveContactStageAction, registerContactEventAction, updateContactAction } from "@/actions/contacts";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +37,12 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
     getLeadById(contact.leadId).catch(() => null),
     contact.campaignId ? getCampaignById(contact.campaignId).catch(() => null) : Promise.resolve(null),
   ]);
+
+  const lpVersions = contact.lpId ? await getLpVersionsForLp(contact.lpId).catch(() => []) : [];
+  const lpStatus = lpVersions[0]?.status ?? null;
+  const canContact = canApproachLead(contact.lpId, lpStatus);
+  const savedDraft = events.find(event => event.type === "abordagem_rascunho")?.notes;
+  const initialMessage = savedDraft || prepareOutreachMessage(lead?.empresa, lead?.cidade, Boolean(contact.lpId));
 
   return (
     <div className="space-y-5">
@@ -163,15 +172,23 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         </div>
 
         <div className="space-y-4">
+          <OutreachPanel
+            businessName={lead?.empresa ?? "este lead"}
+            initialMessage={initialMessage}
+            canContact={canContact}
+            hasLp={Boolean(contact.lpId)}
+            lpStatus={lpStatus}
+            saveAction={saveOutreachDraftAction.bind(null, id)}
+            recordContactAction={recordManualOutreachAction.bind(null, id)}
+            recordReplyAction={recordLeadReplyAction.bind(null, id)}
+          />
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
             <div className="flex items-center gap-2">
               <MessageSquare className="size-3.5 text-[var(--muted-2)]" />
               <h2 className="text-sm font-semibold tracking-tight">Registrar interação</h2>
             </div>
             <form action={registerContactEventAction.bind(null, id)} className="mt-3 space-y-2">
-              <select name="type" className={SELECT} defaultValue="contato">
-                <option value="contato">Contato realizado</option>
-                <option value="resposta">Resposta recebida</option>
+              <select name="type" className={SELECT} defaultValue="nota">
                 <option value="proposta">Proposta enviada</option>
                 <option value="venda">Venda</option>
                 <option value="nota">Nota interna</option>
