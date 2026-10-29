@@ -8,6 +8,8 @@ import { getLeadById, getLpVersionsForLp } from "@/lib/legacy";
 import { canApproachLead, prepareOutreachMessage } from "@/lib/outreach";
 import { saveOutreachDraftAction, recordManualOutreachAction, recordLeadReplyAction } from "@/actions/outreach";
 import { OutreachPanel } from "@/components/contacts/outreach-panel";
+import { DealPanel } from "@/components/contacts/deal-panel";
+import { getDealState } from "@/lib/deal-store";
 import { moveContactStageAction, registerContactEventAction, updateContactAction } from "@/actions/contacts";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   const lpVersions = contact.lpId ? await getLpVersionsForLp(contact.lpId).catch(() => []) : [];
   const lpStatus = lpVersions[0]?.status ?? null;
   const canContact = canApproachLead(contact.lpId, lpStatus);
+  const dealState = await getDealState(contact.id);
   const savedDraft = events.find(event => event.type === "abordagem_rascunho")?.notes;
   const initialMessage = savedDraft || prepareOutreachMessage(lead?.empresa, lead?.cidade, Boolean(contact.lpId));
 
@@ -182,6 +185,8 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
             recordContactAction={recordManualOutreachAction.bind(null, id)}
             recordReplyAction={recordLeadReplyAction.bind(null, id)}
           />
+          <DealPanel contactId={contact.id} business={lead?.empresa ?? `Lead ${contact.leadId}`}
+            stage={contact.stage} lpId={contact.lpId} lpStatus={lpStatus} state={dealState}/>
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
             <div className="flex items-center gap-2">
               <MessageSquare className="size-3.5 text-[var(--muted-2)]" />
