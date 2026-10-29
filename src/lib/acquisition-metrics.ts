@@ -5,6 +5,7 @@ export type AcquisitionMetricsRow = {
   source: string; label: string; leads: number; conversations: number;
   proposals: number; sales: number; revenue: number; spend: number;
   costPerConversation: number | null; cac: number | null; conversionRate: number;
+  spendReported: boolean;
 };
 export type AcquisitionSnapshot = {
   from: string; to: string;
@@ -47,17 +48,19 @@ export async function getAcquisitionSnapshot(days = 30): Promise<AcquisitionSnap
     const sales=Number(v?.sales ?? 0);
     const revenue=Number(v?.revenue ?? 0);
     const spend=spendMap.get(source) ?? 0;
+    const spendReported=spendMap.has(source);
     return {source,label:acquisitionSourceLabel(source),leads,conversations,proposals,sales,
-      revenue,spend,costPerConversation:conversations?spend/conversations:null,
-      cac:sales?spend/sales:null,conversionRate:conversations?sales/conversations*100:0};
+      revenue,spend,spendReported,costPerConversation:spendReported&&conversations?spend/conversations:null,
+      cac:spendReported&&sales?spend/sales:null,conversionRate:conversations?sales/conversations*100:0};
   });
   const sum=(key:"leads"|"conversations"|"proposals"|"sales"|"revenue"|"spend")=>
     rows.reduce((v,row)=>v+row[key],0);
   const leads=sum("leads"),conversations=sum("conversations"),proposals=sum("proposals");
   const sales=sum("sales"),revenue=sum("revenue"),spend=sum("spend");
-  return {from,to,rows,totals:{leads,conversations,proposals,sales,revenue,spend,
-    costPerConversation:conversations?spend/conversations:null,
-    cac:sales?spend/sales:null,conversionRate:conversations?sales/conversations*100:0}};
+  const spendReported=rows.length>0 && rows.filter(row=>row.leads>0).every(row=>row.spendReported);
+  return {from,to,rows,totals:{leads,conversations,proposals,sales,revenue,spend,spendReported,
+    costPerConversation:spendReported&&conversations?spend/conversations:null,
+    cac:spendReported&&sales?spend/sales:null,conversionRate:conversations?sales/conversations*100:0}};
 }
 
 export async function saveAcquisitionSpend(input: {
