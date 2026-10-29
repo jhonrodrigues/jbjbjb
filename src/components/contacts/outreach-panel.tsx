@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ClipboardCopy, MessageSquare, Save, Send } from "lucide-react";
+import { Check, ClipboardCopy, MessageSquare, Save, Send, Sparkles } from "lucide-react";
+import type { CommercialAiResult } from "@/lib/commercial-ai";
 import { OUTREACH_CHANNELS } from "@/lib/outreach";
 import { Button } from "@/components/ui/button";
 
 type Props = {
   businessName: string;
+  aiConfigured: boolean;
+  aiAction: () => Promise<CommercialAiResult>;
   initialMessage: string;
   canContact: boolean;
   hasLp: boolean;
@@ -17,13 +20,33 @@ type Props = {
 };
 
 export function OutreachPanel({
-  businessName, initialMessage, canContact, hasLp, lpStatus,
+  businessName, initialMessage, canContact, hasLp, lpStatus, aiConfigured, aiAction,
   saveAction, recordContactAction, recordReplyAction,
 }: Props) {
   const [message, setMessage] = useState(initialMessage);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [channel, setChannel] = useState("instagram");
+  const [generating, setGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function generateWithAi() {
+    setGenerating(true);
+    setAiError(null);
+    try {
+      const result = await aiAction();
+      if (result.ok && result.suggestion.kind === "outreach") {
+        setMessage(result.suggestion.message);
+        setCopied(false);
+      } else {
+        setAiError(result.ok ? "A IA retornou um formato inesperado." : result.error);
+      }
+    } catch {
+      setAiError("Falha na geração da abordagem. Tente novamente.");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   async function copyMessage() {
     try {
@@ -77,6 +100,10 @@ export function OutreachPanel({
         />
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" size="sm" variant="outline"><Save /> Salvar rascunho</Button>
+          <Button type="button" size="sm" variant="outline" disabled={!aiConfigured || generating}
+            onClick={generateWithAi} title={!aiConfigured ? "Configure OPENAI_API_KEY no servidor" : undefined}>
+            <Sparkles /> {generating ? "Gerando..." : "Gerar com IA"}
+          </Button>
           <Button
             type="button" size="sm" variant="subtle"
             onClick={copyMessage} disabled={!canContact || message.trim().length < 15}
@@ -85,6 +112,8 @@ export function OutreachPanel({
           </Button>
           <span className="text-[9px] text-[var(--muted-2)]">Nenhum envio automático</span>
         </div>
+        {aiError ? <p className="text-[10px] text-[var(--danger)]">{aiError}</p> : null}
+        {!aiConfigured ? <p className="text-[10px] text-[var(--muted-2)]">Configure OPENAI_API_KEY no EasyPanel para habilitar sugestões por IA.</p> : null}
         {copyError ? <p className="text-[10px] text-[var(--danger)]">Não foi possível copiar. Selecione o texto manualmente.</p> : null}
       </form>
 
