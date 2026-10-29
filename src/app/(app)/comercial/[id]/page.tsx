@@ -53,7 +53,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
     <div className="space-y-5">
       <PageHeader
         eyebrow="Comercial"
-        title={lead?.empresa ?? `Contato ${contact.id.slice(0, 8)}`}
+        title={contact.lead?.empresa ?? lead?.empresa ?? `Contato ${contact.id.slice(0, 8)}`}
         description={[lead?.nicho, lead?.cidade, campaign?.name].filter(Boolean).join(" · ")}
         actions={
           <Button asChild variant="ghost" size="sm">
@@ -178,7 +178,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
         <div className="space-y-4">
           <OutreachPanel
-            businessName={lead?.empresa ?? "este lead"}
+            businessName={contact.lead?.empresa ?? lead?.empresa ?? "este lead"}
             aiConfigured={aiConfigured}
             aiAction={generateCommercialAiDraftAction.bind(null, contact.id, "outreach")}
             initialMessage={initialMessage}
@@ -189,7 +189,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
             recordContactAction={recordManualOutreachAction.bind(null, id)}
             recordReplyAction={recordLeadReplyAction.bind(null, id)}
           />
-          <DealPanel contactId={contact.id} business={lead?.empresa ?? `Lead ${contact.leadId}`}
+          <DealPanel contactId={contact.id} business={contact.lead?.empresa ?? lead?.empresa ?? `Lead ${contact.leadId}`}
             stage={contact.stage} lpId={contact.lpId} lpStatus={lpStatus} state={dealState}
             aiConfigured={aiConfigured} aiAction={generateCommercialAiDraftAction.bind(null, contact.id, "proposal")}/>
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
