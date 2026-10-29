@@ -44,7 +44,7 @@ export function parseMetaWhatsAppInbound(payload: unknown, phoneNumberId: string
         const id = string(msg.id,160);
         const from = string(msg.from,128);
         const body = string(object(msg.text)?.body,4000);
-        if (!id || !from || !body || !/^[a-zA-Z0-9_.:-]{4,160}$/.test(id) ||
+        if (!id || !from || !body?.trim() || !/^[a-zA-Z0-9_.:-]{4,160}$/.test(id) ||
             !/^[a-zA-Z0-9_.:-]{5,128}$/.test(from)) continue;
         const profile = contacts.map(object).find(c => c?.wa_id === from);
         const name = string(object(profile?.profile)?.name,160);
