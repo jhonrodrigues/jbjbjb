@@ -1,4 +1,6 @@
-import { BadgeCheck, BriefcaseBusiness, CheckCircle2, ClipboardList, FileText, Handshake, Wallet } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, CheckCircle2, ClipboardList, Handshake, Wallet } from "lucide-react";
+import { ProposalDraftForm } from "@/components/contacts/proposal-draft-form";
+import type { CommercialAiResult } from "@/lib/commercial-ai";
 import { DELIVERY_TASKS, dealStatusLabel, proposalText, type DealState } from "@/lib/deals";
 import {
   completeDeliveryTaskAction, finishDeliveryAction, markProposalSentAction,
@@ -11,13 +13,15 @@ const FIELD = "w-full rounded-md border border-[var(--line)] bg-[var(--surface)]
 const LABEL = "block space-y-1 text-[10px] font-semibold text-[var(--ink)]";
 const BOX = "space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]";
 
-export function DealPanel({ contactId, business, stage, lpId, lpStatus, state }: {
+export function DealPanel({ contactId, business, stage, lpId, lpStatus, state, aiConfigured, aiAction }: {
   contactId: string;
   business: string;
   stage: string;
   lpId: string | null;
   lpStatus: string | null;
   state: DealState;
+  aiConfigured: boolean;
+  aiAction: () => Promise<CommercialAiResult>;
 }) {
   const p = state.proposal;
   const canSend = Boolean(p && state.status === "draft" && lpId && ["approved","published"].includes(lpStatus ?? "")
@@ -44,28 +48,10 @@ export function DealPanel({ contactId, business, stage, lpId, lpStatus, state }:
         <div className={BOX}>
           <h3 className="text-xs font-semibold">Preparar proposta comercial</h3>
           <p className="text-[10px] text-[var(--muted)]">Salve o escopo e os valores antes de apresentá-los ao cliente. Salvar novamente cria uma nova versão de rascunho.</p>
-          <form action={saveProposalDraftAction.bind(null, contactId)} className="space-y-3">
-            <label className={LABEL}>Nome do projeto
-              <input name="title" required minLength={5} maxLength={120} defaultValue={p?.title ?? "Site institucional profissional"} className={FIELD} />
-            </label>
-            <label className={LABEL}>Escopo e entregáveis
-              <textarea name="scope" required minLength={30} maxLength={6000} rows={6}
-                defaultValue={p?.scope ?? "Criação e personalização de landing page responsiva, com informações, serviços, canais de contato e revisão antes da publicação."}
-                className={FIELD}/>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className={LABEL}>Implantação (R$)
-                <input name="price" required inputMode="decimal" defaultValue={p?.price ?? ""} placeholder="1200.00" className={FIELD}/>
-              </label>
-              <label className={LABEL}>Mensalidade (R$)
-                <input name="monthly" required inputMode="decimal" defaultValue={p?.monthly ?? "0.00"} className={FIELD}/>
-              </label>
-            </div>
-            <label className={LABEL}>Prazo em dias
-              <input type="number" name="deliveryDays" min={1} max={365} required defaultValue={p?.deliveryDays || 15} className={FIELD}/>
-            </label>
-            <Button type="submit" variant="outline" size="sm" className="w-full"><FileText/> Salvar rascunho da proposta</Button>
-          </form>
+          <ProposalDraftForm key={p?.id ?? "new"}
+            initial={p} aiConfigured={aiConfigured} aiAction={aiAction}
+            saveAction={saveProposalDraftAction.bind(null, contactId)}
+          />
         </div>
       ) : null}
 
