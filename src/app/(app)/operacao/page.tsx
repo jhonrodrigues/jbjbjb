@@ -59,7 +59,7 @@ export default async function OperationPage() {
         <Metric label="Em revisão" value={counts.revisao ?? 0} icon={ClipboardCheck} />
         <Metric label="Prontos para contato" value={counts.abordagem ?? 0} icon={MessageCircle} />
         <Metric label="Em negociação" value={counts.negociacao ?? 0} icon={ArrowUpRight} />
-        <Metric label="Vendas fechadas" value={counts.venda ?? 0} icon={CheckCircle2} />
+        <Metric label="Vendas fechadas" value={(counts.venda ?? 0)+(counts.entrega ?? 0)+(counts.entregue ?? 0)} icon={CheckCircle2} />
       </div>
 
       <div className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-[11px] leading-relaxed text-[var(--muted)]">
@@ -136,9 +136,9 @@ function OpportunityCard({ item }: { item: OperationEntry }) {
           Gerar landing page ↗
         </Link>
       )}
-      <Link href={`/comercial/${item.contactId}#central-contato`}
+      <Link href={`/comercial/${item.contactId}#${["entrega","entregue","venda","negociacao"].includes(item.phase)?"negocio":"central-contato"}`}
         className="block rounded-md border border-[var(--line)] px-2 py-1.5 text-center text-[10px] font-medium text-[var(--ink)] hover:bg-[var(--surface-hover)]">
-        {item.phase === "revisao" ? "Preparar abordagem" : "Central de contato"} ↗
+        {item.phase === "entrega" || item.phase === "entregue" || item.phase === "venda" ? "Acompanhar entrega" : item.phase === "negociacao" ? "Propostas e negociação" : item.phase === "revisao" ? "Preparar abordagem" : "Central de contato"} ↗
       </Link>
       {item.nextAction ? (
         <p className="rounded bg-[var(--accent-subtle)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--accent-strong)]">
