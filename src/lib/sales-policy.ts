@@ -14,7 +14,7 @@ export function validateSalesDecision(value: unknown): SalesDecision | null {
   const v = value as Record<string, unknown>;
   if (typeof v.reply !== "string" || typeof v.handoff !== "boolean" || typeof v.optOut !== "boolean") return null;
   const reply = v.reply.trim();
-  if (reply.length > 750 || /https?:\/\//i.test(reply)) return null;
+  if (reply.length > 750 || /(?:https?:\/\/|www\.|\b[a-z0-9-]+\.(?:com\.br|com|net|org|io)\b|R\$\s*\d)/i.test(reply)) return null;
   if (!v.optOut && !v.handoff && reply.length < 10) return null;
   return { reply, handoff: v.handoff, optOut: v.optOut };
 }
