@@ -11,7 +11,7 @@ type Claimed = {
 };
 type Thread = {
   mode: SalesMode; opted_out: boolean; last_inbound_at: Date | null;
-  lead_id: string; lp_id: string | null;
+  lead_id: string; lp_id: string | null; stage: string;
 };
 
 export type SalesTickResult = {
@@ -106,13 +106,13 @@ export async function runSalesTick(): Promise<SalesTickResult> {
     if (!claimed) return { outcome: "empty" };
 
     const { rows: [thread] } = await client.query<Thread>(
-      `SELECT t.mode,t.opted_out,t.last_inbound_at,c.lead_id,c.lp_id
+      `SELECT t.mode,t.opted_out,t.last_inbound_at,c.lead_id,c.lp_id,c.stage
        FROM jb_agent_sales_threads t
        JOIN jb_agent_contacts c ON c.id=t.contact_id
        WHERE t.contact_id=$1`,
       [claimed.contact_id],
     );
-    if (!thread || isOptOut(claimed.content) || !canAutoReply({
+    if (!thread || ["fechado","perdido"].includes(thread.stage) || isOptOut(claimed.content) || !canAutoReply({
       workerEnabled: true, paused: await isSalesPaused(client),
       mode: thread.mode, optedOut: thread.opted_out,
       lastInboundAt: thread.last_inbound_at, now: new Date(),
@@ -191,6 +191,15 @@ export async function runSalesTick(): Promise<SalesTickResult> {
       workerEnabled: true,paused: await isSalesPaused(client),mode:fresh.mode,
       optedOut:fresh.opted_out,lastInboundAt:fresh.last_inbound_at,now:new Date(),
     })) return { outcome:"draft",messageId:claimed.id };
+
+    const { rows: [newer] } = await client.query<{ newer: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM jb_agent_sales_messages
+         WHERE contact_id=$1 AND direction='inbound'
+           AND (created_at,id) > (SELECT created_at,id FROM jb_agent_sales_messages WHERE id=$2)
+       ) AS newer`,[claimed.contact_id,claimed.id],
+    );
+    if (newer?.newer) return { outcome:"draft",messageId:claimed.id };
 
     // Não repetir despacho em caso de falha/incerteza. Requer inspeção humana.
     try {
