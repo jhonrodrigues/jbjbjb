@@ -78,10 +78,15 @@ export async function ingestSalesInbound(input: {
                 updated_at=now()`,
         [input.contactId,stop],
       );
+      await client.query(
+        `INSERT INTO jb_agent_contact_events(contact_id,type,notes,metadata)
+         VALUES ($1,'mensagem_recebida',$2,jsonb_build_object('channel',$3,'provider_message_id',$4))`,
+        [input.contactId,"Mensagem recebida do cliente",input.channel,input.providerMessageId],
+      );
       if (!stop) {
         await client.query(
           `UPDATE jb_agent_contacts
-              SET stage=CASE WHEN stage IN ('pronto_para_contato','contatado')
+              SET stage=CASE WHEN stage IN ('identificado','qualificado','demonstracao_preparada','aguardando_aprovacao','pronto_para_contato','contatado')
                 THEN 'respondeu' ELSE stage END,
                   updated_at=now()
             WHERE id=$1`,
