@@ -178,6 +178,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
               <Badge variant={process.env.AI_API_KEY || process.env.OPENAI_API_KEY ? "success" : "outline"}>
                 IA {process.env.AI_API_KEY || process.env.OPENAI_API_KEY ? "configurada" : "não configurada"}
               </Badge>
+              <Badge variant={process.env.OPENAI_API_KEY ? "success" : "outline"}>
+                IA comercial {process.env.OPENAI_API_KEY ? "configurada" : "não configurada"}
+              </Badge>
             </div>
             <p className="mt-2">
               Consulte <Link href="/agentes" className="text-[var(--accent)] hover:underline">Agentes</Link> para a fila e os endpoints de integração.

@@ -9,6 +9,7 @@ import { canApproachLead, prepareOutreachMessage } from "@/lib/outreach";
 import { saveOutreachDraftAction, recordManualOutreachAction, recordLeadReplyAction } from "@/actions/outreach";
 import { OutreachPanel } from "@/components/contacts/outreach-panel";
 import { DealPanel } from "@/components/contacts/deal-panel";
+import { generateCommercialAiDraftAction } from "@/actions/commercial-ai";
 import { getDealState } from "@/lib/deal-store";
 import { moveContactStageAction, registerContactEventAction, updateContactAction } from "@/actions/contacts";
 import { PageHeader } from "@/components/layout/page-header";
@@ -44,6 +45,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   const lpStatus = lpVersions[0]?.status ?? null;
   const canContact = canApproachLead(contact.lpId, lpStatus);
   const dealState = await getDealState(contact.id);
+  const aiConfigured = Boolean(process.env.OPENAI_API_KEY);
   const savedDraft = events.find(event => event.type === "abordagem_rascunho")?.notes;
   const initialMessage = savedDraft || prepareOutreachMessage(lead?.empresa, lead?.cidade, Boolean(contact.lpId));
 
@@ -177,6 +179,8 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         <div className="space-y-4">
           <OutreachPanel
             businessName={lead?.empresa ?? "este lead"}
+            aiConfigured={aiConfigured}
+            aiAction={generateCommercialAiDraftAction.bind(null, contact.id, "outreach")}
             initialMessage={initialMessage}
             canContact={canContact}
             hasLp={Boolean(contact.lpId)}
@@ -186,7 +190,8 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
             recordReplyAction={recordLeadReplyAction.bind(null, id)}
           />
           <DealPanel contactId={contact.id} business={lead?.empresa ?? `Lead ${contact.leadId}`}
-            stage={contact.stage} lpId={contact.lpId} lpStatus={lpStatus} state={dealState}/>
+            stage={contact.stage} lpId={contact.lpId} lpStatus={lpStatus} state={dealState}
+            aiConfigured={aiConfigured} aiAction={generateCommercialAiDraftAction.bind(null, contact.id, "proposal")}/>
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
             <div className="flex items-center gap-2">
               <MessageSquare className="size-3.5 text-[var(--muted-2)]" />
