@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS jb_agent_acquisition_contacts (
   contact_id uuid PRIMARY KEY REFERENCES jb_agent_contacts(id) ON DELETE CASCADE,
   source text NOT NULL,
   display_name text,
+  email text,
   campaign_key text,
   ad_key text,
   utm_source text,
