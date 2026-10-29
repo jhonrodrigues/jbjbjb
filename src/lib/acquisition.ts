@@ -105,13 +105,13 @@ export async function resolveAcquisitionIdentity(input: AcquisitionIdentity):
 export async function ingestVerifiedWhatsApp(input: {
   senderId: string; displayName: string | null;
   providerMessageId: string; text: string;
-  campaignKey: string | null; adKey: string | null;
+  campaignKey: string | null; adKey: string | null; isAdReferral: boolean;
 }) {
   // Não inferir autorização de publicidade; é apenas resposta à conversa
   // iniciada pelo cliente, que o webhook oficial autenticou.
   const identity = await resolveAcquisitionIdentity({
     channel: "whatsapp", externalId:input.senderId,
-    displayName: input.displayName,source:input.adKey ? "meta_ads" : "whatsapp_organic",
+    displayName: input.displayName,source:input.isAdReferral ? "meta_ads" : "whatsapp_organic",
     campaignKey:input.campaignKey,adKey:input.adKey,
     eventType:"conversation_started",eventKey:"wa:"+input.providerMessageId,
   });
