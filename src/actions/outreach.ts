@@ -8,7 +8,7 @@ import { contactEvents, contacts, lpVersions } from "@/db/schema";
 import { requireUser } from "@/lib/auth-helpers";
 import { formString } from "@/lib/forms";
 import { logError } from "@/lib/logger";
-import { nextOutreachStage, OUTREACH_CHANNELS } from "@/lib/outreach";
+import { canApproachLead, nextOutreachStage, OUTREACH_CHANNELS } from "@/lib/outreach";
 
 function back(contactId: string, message: string, kind: "ok" | "error" = "ok"): never {
   redirect(`/comercial/${contactId}?${kind}=${encodeURIComponent(message)}#central-contato`);
@@ -78,7 +78,7 @@ export async function recordManualOutreachAction(contactId: string, formData: Fo
           .where(eq(lpVersions.lpId, contact.lpId))
           .orderBy(desc(lpVersions.version))
           .limit(1);
-        if (latest?.status !== "approved" && latest?.status !== "published") {
+        if (!canApproachLead(contact.lpId, latest?.status ?? null)) {
           throw new Error("LP_NOT_APPROVED");
         }
       }
