@@ -53,7 +53,7 @@ export async function moveContactStageAction(contactId: string, formData: FormDa
 export async function registerContactEventAction(contactId: string, formData: FormData): Promise<void> {
   const user = await requireUser();
   const type = formString(formData, "type") || "nota";
-  if (!["contato", "resposta", "proposta", "venda", "nota"].includes(type)) back(contactId, "Tipo de evento inválido.", "error");
+  if (!["proposta", "venda", "nota"].includes(type)) back(contactId, "Tipo de evento inválido.", "error");
 
   try {
     const contact = await registerContactEvent(contactId, type, formString(formData, "notes"), user.id);
