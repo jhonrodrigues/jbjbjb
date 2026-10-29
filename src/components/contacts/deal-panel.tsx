@@ -91,6 +91,10 @@ export function DealPanel({ contactId, business, stage, lpId, lpStatus, state }:
                 <input name="notes" maxLength={2000} className={FIELD} placeholder="Ex.: enviada após conversa com o responsável"/>
               </label>
               <label className="flex items-start gap-2 text-[10px] text-[var(--muted)]">
+                <input name="waConsent" type="checkbox" className="mt-0.5"/>
+                Se o envio foi por WhatsApp, confirmo a autorização prévia para contato comercial nesse canal.
+              </label>
+              <label className="flex items-start gap-2 text-[10px] text-[var(--muted)]">
                 <input name="manualSent" type="checkbox" required disabled={!canSend} className="mt-0.5"/>
                 Confirmo que a proposta foi realmente apresentada ao lead, com autorização para o canal utilizado.
               </label>
