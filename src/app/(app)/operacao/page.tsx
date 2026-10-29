@@ -136,6 +136,10 @@ function OpportunityCard({ item }: { item: OperationEntry }) {
           Gerar landing page ↗
         </Link>
       )}
+      <Link href={`/comercial/${item.contactId}#central-contato`}
+        className="block rounded-md border border-[var(--line)] px-2 py-1.5 text-center text-[10px] font-medium text-[var(--ink)] hover:bg-[var(--surface-hover)]">
+        {item.phase === "revisao" ? "Preparar abordagem" : "Central de contato"} ↗
+      </Link>
       {item.nextAction ? (
         <p className="rounded bg-[var(--accent-subtle)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--accent-strong)]">
           {item.nextAction}
