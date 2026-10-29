@@ -42,6 +42,19 @@ async function getLeadSummaries(ids: string[]): Promise<Map<string, LeadSummary>
       prioridade: row.prioridade ?? null,
     });
   }
+  // Leads inbound da Cloud API não precisam existir na tabela legada de prospecção.
+  const missing = ids.filter(id => !map.has(id));
+  if (missing.length) {
+    const { rows: captured } = await getPool().query<{
+      id:string; empresa:string|null; email:string|null;
+    }>(`SELECT c.lead_id AS id,a.display_name AS empresa,a.email
+        FROM jb_agent_contacts c JOIN jb_agent_acquisition_contacts a ON a.contact_id=c.id
+        WHERE c.lead_id=ANY($1::text[])`,[missing]);
+    for (const row of captured) {
+      map.set(row.id,{id:row.id,empresa:row.empresa||"Novo interessado",
+        nicho:null,cidade:null,telefone:null,site:null,prioridade:null});
+    }
+  }
   return map;
 }
 
@@ -62,7 +75,10 @@ export async function getCrmContactsPage(filters: { campaignId?: string; stage?:
     const search = add(`%${filters.search.trim().slice(0, 160)}%`);
     const legacy = schema.leads.exists && hasColumn(schema.leads, "id") && columns.length
       ? `or exists (select 1 from jb_agent_leads l where l."id"::text=ct.lead_id and concat_ws(' ', ${columns.map(column => `l."${column}"::text`).join(",")}) ilike ${search})` : "";
-    conditions.push(`(ct.next_action ilike ${search} ${legacy})`);
+    conditions.push(`(ct.next_action ilike ${search} ${legacy} or exists (
+      select 1 from jb_agent_acquisition_contacts ac
+       where ac.contact_id=ct.id and concat_ws(' ',ac.display_name,ac.email) ilike ${search}
+    ))`);
   }
   const where = conditions.length ? `where ${conditions.join(" and ")}` : "";
   const pool = getPool();
