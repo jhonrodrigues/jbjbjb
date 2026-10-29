@@ -60,6 +60,15 @@ export async function ingestSalesInbound(input: {
       );
       if (!row) return { duplicate: true };
 
+      // Consolida mensagens seguidas do mesmo lead em uma única resposta.
+      // Mensagens superadas continuam no histórico, mas não geram disparos.
+      await client.query(
+        `UPDATE jb_agent_sales_messages SET status='held',
+           error='SUPERSEDED_BY_NEW_INBOUND',updated_at=now()
+         WHERE contact_id=$1 AND direction='inbound' AND status='pending' AND id<>$2`,
+        [input.contactId,row.id],
+      );
+
       await client.query(
         `INSERT INTO jb_agent_sales_threads(contact_id,mode,opted_out,last_inbound_at)
          VALUES ($1,'ai',$2,now())
