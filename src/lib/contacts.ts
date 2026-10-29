@@ -100,7 +100,7 @@ export async function moveContactStage(contactId: string, stage: CrmStage, notes
     const [contact] = await tx.select().from(contacts).where(eq(contacts.id, contactId)).limit(1).for("update");
     if (!contact) throw new Error("CONTACT_NOT_FOUND");
     if (contact.stage === stage) return contact;
-    await tx.update(contacts).set({ stage, closedAt: stage === "fechado" ? new Date() : null, updatedAt: new Date() }).where(eq(contacts.id, contactId));
+    await tx.update(contacts).set({ stage, closedAt: null, updatedAt: new Date() }).where(eq(contacts.id, contactId));
     await tx.insert(contactEvents).values({ contactId, type: "etapa", fromStage: contact.stage, toStage: stage, notes: notes || null, createdBy: userId });
     return contact;
   });
