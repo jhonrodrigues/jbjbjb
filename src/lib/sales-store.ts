@@ -42,6 +42,7 @@ export async function ingestSalesInbound(input: {
   providerMessageId: string;
   text: string;
   customerInitiated: true;
+  receivedAt?: Date;
 }) {
   const client = await getPool().connect();
   try {
@@ -71,12 +72,12 @@ export async function ingestSalesInbound(input: {
 
       await client.query(
         `INSERT INTO jb_agent_sales_threads(contact_id,mode,opted_out,last_inbound_at)
-         VALUES ($1,'ai',$2,now())
+         VALUES ($1,'ai',$2,$3::timestamptz)
          ON CONFLICT(contact_id) DO UPDATE
-            SET last_inbound_at=now(),
+            SET last_inbound_at=greatest(coalesce(jb_agent_sales_threads.last_inbound_at,EXCLUDED.last_inbound_at),EXCLUDED.last_inbound_at),
                 opted_out=jb_agent_sales_threads.opted_out OR EXCLUDED.opted_out,
                 updated_at=now()`,
-        [input.contactId,stop],
+        [input.contactId,stop,input.receivedAt ?? new Date()],
       );
       await client.query(
         `INSERT INTO jb_agent_contact_events(contact_id,type,notes,metadata)
