@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { setSalesPaused, setSalesThreadMode } from "@/lib/sales-store";
+import { setSalesPaused, setSalesThreadMode, saveSalesInstructions } from "@/lib/sales-store";
 import { getPool } from "@/db/client";
 import { logError } from "@/lib/logger";
 
@@ -39,4 +39,17 @@ export async function optOutSalesThreadAction(contactId: string): Promise<void> 
   revalidatePath("/autopilot");
   revalidatePath(`/autopilot/${contactId}`);
   redirect(`/autopilot/${contactId}?ok=Contato+bloqueado`);
+}
+
+export async function saveSalesInstructionsAction(form: FormData): Promise<void> {
+  const user = await requireAdmin();
+  const instructions = String(form.get("instructions") ?? "").trim();
+  if (instructions.length > 4000) throw new Error("SALES_INSTRUCTIONS_TOO_LONG");
+  try { await saveSalesInstructions(instructions,user.id); }
+  catch (error) {
+    logError("Falha ao salvar instruções comerciais",error);
+    redirect("/autopilot?error=Falha+ao+salvar+instru%C3%A7%C3%B5es");
+  }
+  revalidatePath("/autopilot");
+  redirect("/autopilot?ok=Instru%C3%A7%C3%B5es+salvas");
 }
