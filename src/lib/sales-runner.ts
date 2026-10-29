@@ -201,6 +201,17 @@ export async function runSalesTick(): Promise<SalesTickResult> {
     );
     if (newer?.newer) return { outcome:"draft",messageId:claimed.id };
 
+    const { rows: [rate] } = await client.query<{ last_minute: number; last_day: number }>(
+      `SELECT
+       count(*) FILTER (WHERE created_at >= now()-interval '1 minute')::integer AS last_minute,
+       count(*) FILTER (WHERE created_at >= now()-interval '24 hours')::integer AS last_day
+       FROM jb_agent_sales_messages WHERE contact_id=$1 AND direction='outbound' AND status='sent'`,
+      [claimed.contact_id],
+    );
+    if (Number(rate?.last_minute ?? 0) >= 2 || Number(rate?.last_day ?? 0) >= 30) {
+      return { outcome:"draft",messageId:claimed.id };
+    }
+
     // Não repetir despacho em caso de falha/incerteza. Requer inspeção humana.
     try {
       const providerId = await dispatchReply({
