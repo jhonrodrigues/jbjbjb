@@ -37,6 +37,7 @@ export type AcquisitionIdentity = {
   email?: string | null;
   eventKey: string;
   eventType: "conversation_started" | "form_submitted";
+  marketingOptIn?: boolean;
 };
 
 export async function resolveAcquisitionIdentity(input: AcquisitionIdentity):
@@ -89,9 +90,10 @@ export async function resolveAcquisitionIdentity(input: AcquisitionIdentity):
       await client.query(
         `INSERT INTO jb_agent_acquisition_events
           (contact_id,event_key,event_type,source,campaign_key,ad_key,metadata)
-         VALUES($1,$2,$3,$4,$5,$6,'{}'::jsonb) ON CONFLICT(event_key) DO NOTHING`,
+         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb) ON CONFLICT(event_key) DO NOTHING`,
         [contactId,input.eventKey,input.eventType,input.source,
-          input.campaignKey ?? null,input.adKey ?? null],
+          input.campaignKey ?? null,input.adKey ?? null,
+          JSON.stringify({marketingOptInClaimed: input.marketingOptIn === true})],
       );
       await client.query("COMMIT");
       return { contactId, created };
