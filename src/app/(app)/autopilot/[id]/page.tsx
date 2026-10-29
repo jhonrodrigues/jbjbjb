@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { ArrowLeft, Bot, Hand, ShieldBan } from "lucide-react";
 import { isAdmin, requireUser } from "@/lib/auth-helpers";
 import { getSalesThread, listSalesMessages } from "@/lib/sales-store";
@@ -16,6 +17,7 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: str
 export default async function SalesConversationPage({ params,searchParams }: Props) {
   const user = await requireUser();
   const { id } = await params;
+  if (!z.string().uuid().safeParse(id).success) notFound();
   const { ok } = await searchParams;
   const [thread,messages] = await Promise.all([getSalesThread(id),listSalesMessages(id)]);
   if (!thread) notFound();
