@@ -86,9 +86,14 @@ export async function setLpStatus(lpId: string, status: LpStatus) {
             await client.query(
               `update jb_agent_contacts
                   set stage=$2, lp_id=$3, updated_at=now(),
-                      next_action=case when $2='pronto_para_contato'
-                        then 'Preparar abordagem e revisar o canal comercial'
-                        else 'Revisar demonstracao antes do contato' end
+                      next_action=case
+                        when next_action is null
+                          or next_action in ('Revisar demonstracao antes do contato',
+                                             'Preparar abordagem e revisar o canal comercial')
+                        then case when $2='pronto_para_contato'
+                          then 'Preparar abordagem e revisar o canal comercial'
+                          else 'Revisar demonstracao antes do contato' end
+                        else next_action end
                 where id=$1`,
               [contactId, nextStage, lpId],
             );
